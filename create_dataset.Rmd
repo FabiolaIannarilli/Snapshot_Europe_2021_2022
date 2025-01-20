@@ -1,0 +1,325 @@
+# Author: Fabiola Iannarilli
+# Date: 2025-01-20
+
+# This script accompains the manuscript:
+# "SNAPSHOT EUROPE 2021-2022: The first coordinated, volunteer-based and European-wide camera trap surveys of terrestrial vertebrates"
+
+This code provided in this script contains instructions to clean and collate camera-trap data collected by participants of Snapshot Europe 2021 and 2022. Collaborators uploaded and processed the images collected in September-October of each year in Wildlife Insights. Details on the two datasets and the data collection protocol are available in the metadata of the associated publication @data_paper_2024.
+
+The script is structured as folows:
+* __Data cleaning and collating__. We start by cleaning the data of the projects @SE_2021 and @SE_2022 after they have been downloaded from Wildlife Insights. We, then, collate the cleaned version of these two datasets into one, which is the version shared in the associated publication @data_paper_2024. 
+* __Data exploration and visualization__. We visually explore the data and create the figures and summaries reported in the metadata file of @data_paper_2024.
+
+## Data cleaning
+
+We load the data and the necessary functions and packages. 
+
+```{r create1}
+# Load libraries
+library(tidyverse)
+library(terra)
+library(tidyterra)
+library(sf)
+library(scales)
+library(wesanderson)
+library(ggh4x)
+source("custom_functions/clean_2021.R")
+source("custom_functions/clean_2022.R")
+source("custom_functions/collate_dataset.R")
+
+# Load data
+# enter date of data download
+date_download <- "20250120"
+
+# 2021
+se21_proj <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/projects.csv"))
+se21_cam <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/cameras.csv"))
+se21_depl <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/deployments.csv"))
+se21_seq <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/sequences.csv"))
+#se21_images0 <- 
+#se21_images1 <-
+
+# 2022
+se22_proj <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/projects.csv"))
+se22_cam <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/cameras.csv"))
+se22_depl <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/deployments.csv"))
+se22_seq <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/sequences.csv"))
+#se22_images0 <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/images_200446_0.csv"))
+#se22_images1 <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/images_200446_1.csv"))
+#se22_images2 <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/images_200446_2.csv"))
+```
+
+We run test script to fix some known issues in both datasets.
+
+``` {r create2}
+cleaned_2021 <- clean_2021(year = 2021)
+cleaned_2022 <- clean_2022(year = 2022)
+```
+
+We now collate each element (e.g. *seq*, that is the object containing the sequences) of the cleaned dataset for 2021 with the corresponding items of year 2022. 
+
+``` {r create3}
+cleaned <- collate_dataset(dat1 = cleaned_2021, dat2 = cleaned_2022) 
+```
+
+We save each item in the *cleaned* list in a separate file in a folder named *DataS1*. The overall structure mimics the structure of the relational database used by Wildlife Insights. The zipped version of this folder correspond to the version shared with the associate publication @data_paper_2024.
+
+``` {r create4}
+write.csv(cleaned$cam, file = "data_output/DataS1/SNAPSHOT_Europe_2021_2022_cameras.csv")
+write.csv(cleaned$depl, file = "data_output/DataS1/SNAPSHOT_Europe_2021_2022_deployments.csv")
+write.csv(cleaned$proj, file = "data_output/DataS1/SNAPSHOT_Europe_2021_2022_projects.csv")
+write.csv(cleaned$seq, file = "data_output/DataS1/SNAPSHOT_Europe_2021_2022_sequences.csv")
+write.csv(cleaned$images, file = "data_output/DataS1/SNAPSHOT_Europe_2021_2022_images.csv")
+
+```
+
+## Data visualization and mapping
+
+We provide a few graphics that capture the spatial, temporal, and taxonomical extent of the data.
+
+### Spatial coverage
+We start with mapping the locations of the arrays in each year in relation to the main ecoregions occurring in Europe @ecoregions.
+``` {r plot1}
+# we load shapefile containing ecoregions. The data were downloaded from https://ecoregions.appspot.com/ on 2025-01-20
+ecor <- read_sf("other_data/Ecoregions2017/Ecoregions2017.shp")
+
+# data prep: extract one camera-trap site for each array per year (i.e. subproject)
+loc <- cleaned$depl %>% 
+  group_by(year, subproject_name) %>% 
+  slice(1) %>% 
+  select(year, subproject_name, longitude, latitude)
+
+# camera site per array
+n_sites <- cleaned$depl %>% 
+  group_by(year, subproject_name) %>% 
+  summarize(n_sites = n())
+
+# bring info together
+loc <- left_join(loc, n_sites)
+
+loc <- loc %>% 
+  #filter(n_sites > 3) %>% 
+  mutate(n_sites_cut = cut(n_sites, breaks = c(3, 10, 15, 20, 40, Inf), include.lowest = TRUE))
+
+# number of subprojects per year
+table(loc$year)
+
+# import map background
+world <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf")
+
+ggplot() +
+  geom_sf(data = ecor, aes(fill = BIOME_NAME, color = BIOME_NAME)) +
+  geom_point(data = loc, aes(x = longitude, y = latitude, colour = n_sites_cut), inherit.aes = FALSE, size = 2) +
+  coord_sf(xlim = c(min(loc$longitude)-2, max(loc$longitude)+2),
+           ylim = c(min(loc$latitude)-2, max(loc$latitude)+2)) +
+  labs(color = "Number of \nsites") +
+  scale_color_viridis_d() +
+  #theme_classic() +
+  ggthemes::theme_map() +
+  theme(legend.position = "none", 
+        legend.title = element_text(vjust = 0, hjust = 0, face = "bold", size = 14),
+        legend.text = element_text(size = 12),
+        strip.text = element_text(hjust = 0, face = "bold"),
+        strip.background = element_rect(fill = "white", colour = "white")
+        panel.border = element_rect(color = "grey", fill = NA),
+        #strip.background = element_rect(fill = "grey", colour = "grey"),
+        #strip.text = element_text(vjust = 0, hjust = 0, face = "bold", size = 14, colour = 'white')) +
+  facet_wrap(~year, ncol = 1)
+
+ 
+
+```
+
+
+### Temporal coverage
+We then visualize the period of activity for each array in the two subsequent years.
+
+``` {r plot2}
+# data prep: calculate period of activity of each array per year (i.e. subproject)
+temp <- cleaned$depl %>% 
+  mutate(effort = as.numeric(difftime(end_date, start_date, units = "day"))) %>% 
+  group_by(year, subproject_name) %>% 
+  summarize(first_day_depl = min(as.Date(start_date)),
+            last_day_depl = max(as.Date(end_date)),
+            tot_effort = round(sum(effort), 0)) %>% 
+  mutate(subproject_name_no_year = substr(subproject_name,1,nchar(subproject_name)-3),
+         first_day_depl = ymd(first_day_depl),
+         last_day_depl = ymd(last_day_depl),
+         tot_effort_cut = cut(tot_effort, breaks = c(0, 500, 1000, 2000, max(tot_effort))))
+
+ggplot(temp, aes(y = subproject_name_no_year, color = tot_effort_cut)) +
+  geom_segment(aes(x = first_day_depl, xend = last_day_depl,
+                   yend = subproject_name_no_year), size = 1) +
+  labs(x = "Sampling period", color = "Effort\n(days)") +
+  scale_x_date(labels = date_format("%b")) +
+  #scale_color_viridis_d() +
+  scale_color_manual(values = wes_palette("Zissou1", n = 5)) +
+  scale_y_discrete(limits=rev) +
+  theme_classic() +
+  theme(legend.position = "bottom",
+        axis.title = element_blank(),
+        panel.grid.major.y = element_line(color = "grey90"),
+        strip.text = element_text(hjust = 0, face = "bold"),
+        strip.background = element_rect(fill = "white", colour = "white")) +
+  facet_grid(~year, scales = "free_x")
+  
+ggsave(filename = "figures/SnapshotEurope2021_and_2022_temporal_coverage.png",
+       device = "png", units = "cm", height = 29, width = 22, dpi = 600)
+```
+
+### Taxonomic coverage
+
+``` {r plot3}
+# species' raw counts
+seq <- cleaned$seq %>% 
+  filter(species != "" & species != "No CV Result" &
+           common_name != "Human-Camera Trapper" &
+           common_name != "Human-Researcher" &
+           common_name != "Human-Maintenance crew") %>% 
+  group_by(year, class, order, family, genus, species) %>% 
+  summarise(n_seq = n()) %>% 
+  mutate(scientific_name = paste(genus, species, sep = " "))
+
+# plot raw event counts
+pal = wes_palette("Zissou1", 20, type = "continuous")
+pl1 <- seq %>% filter(n_seq > 100) %>% 
+ggplot(., aes(x = interaction(scientific_name, family, order, class), y = n_seq)) + 
+  geom_bar(stat="identity", aes(color = interaction(family, order, class), 
+                                fill = interaction(family, order, class)), alpha = 0.9) +
+  labs(y = "Number of sequences*", x = "", caption = "*Only species with more than 100 sequences") +
+  scale_x_discrete(guide = "axis_nested", limits = rev) +
+  scale_fill_manual(values = pal) + #, type = "continuous" 
+  scale_color_manual(values = pal) + 
+  coord_flip() +
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.title.x = element_text(face = "bold"),
+        strip.text = element_text(hjust = 0, face = "bold"),
+        strip.background = element_rect(fill = "white", colour = "white"),
+        ggh4x.axis.nestline = element_line(size = 1)) +
+  facet_wrap(~year)
+
+ggsave(pl1, filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_raw_event_counts.png",
+       device = "png", units = "cm", height = 29, width = 22, dpi = 600)
+
+
+# species' detection rates (by array)
+seq2 <- cleaned$seq %>% 
+  filter(species != "" & species != "No CV Result" &
+           common_name != "Human-Camera Trapper" &
+           common_name != "Human-Researcher" &
+           common_name != "Human-Maintenance crew") %>% 
+  left_join(cleaned$depl %>% select(deployment_id, subproject_name)) %>% 
+  group_by(year, subproject_name, class, order, family, genus, species) %>% 
+  summarise(n_seq = n()) %>% 
+  mutate(scientific_name = paste(genus, species, sep = " "))
+seq2 <- left_join(seq2, temp %>% select(subproject_name, subproject_name_no_year, tot_effort)) %>% 
+  mutate(det_rates = n_seq/tot_effort)
+
+# plot raw event counts
+#pal = wes_palette("Zissou1", 20, type = "continuous")
+pl2 <- seq2 %>% filter(n_seq > 100) %>% 
+ggplot(., aes(x = interaction(scientific_name, family, order, class), y = det_rates)) + 
+  geom_boxplot(aes(color = interaction(family, order, class), 
+                                fill = interaction(family, order, class)), alpha = 0.9) +
+  labs(y = "Detection rates*\n(number of events per trapping day)", x = "", caption = "*Only species with more than 100 sequences") +
+  scale_x_discrete(guide = "axis_nested", limits = rev) +
+  scale_fill_manual(values = pal) + #, type = "continuous" 
+  scale_color_manual(values = pal) + 
+  coord_flip() +
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.title.x = element_text(face = "bold"),
+        strip.text = element_text(hjust = 0, face = "bold"),
+        strip.background = element_rect(fill = "white", colour = "white"),
+        ggh4x.axis.nestline = element_line(size = 1)) +
+  facet_wrap(~year)
+
+ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_det_rates.png",
+       device = "png", units = "cm", height = 29, width = 22, dpi = 600)
+
+# Join plots
+ggarrange(pl1 + labs(y = "Number of sequences*\n", caption = ""), pl2 + theme(axis.text.y = element_blank()),
+          widths = c(65, 35), ncol = 2) %>% 
+ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage.png",
+       device = "png", units = "cm", height = 22, width = 49, dpi = 600)
+
+```
+
+## Data summaries
+
+``` {r tab1}
+# camera site per array
+n_sites <- cleaned$depl %>% 
+  group_by(year, subproject_name) %>% 
+  summarize(n_sites = n())
+range(n_sites$n_sites)
+mean(n_sites$n_sites)
+sd(n_sites$n_sites)
+```
+
+## Mapping
+
+Building yearly map of locations. Use Corine Land Cover as a background with classes reclassified as forest, agricultural areas, tc (see code below).
+
+``` {r map1}
+# open CLC file
+clc <- rast("other_data/u2018_clc2018_v2020_20u1_raster100m/DATA/U2018_CLC2018_V2020_20u1.tif")
+
+# group CLC categories in fewer groups
+lvl <- (levels(clc$LABEL3))[[1]] %>% 
+  dplyr::rename("from_value" = Value) %>% 
+  mutate(to_value = c(rep(0, 9), #artificial area
+                      2, 0, 
+                      rep(1, 6),
+                      4, 
+                      rep(1, 3),
+                      rep(5, 4),
+                      rep(3, 4),
+                      rep(6, 9),
+                      rep(99, 7))) %>% 
+  select(-LABEL3)
+
+# https://docs.google.com/forms/d/12Qjqajh536XqebQRr0hwkxJDIxjr9zF9EiDEpC8lbg4/edit
+
+# create a data frame with the new values and their corresponding labels
+labels <- data.frame(
+  ID = c(0, 1, 2, 3, 4, 5, 6, 99),
+  Label = c("Urban", "Agricultural areas", 
+            "Artificial non-agricultural vegetated areas (i.e. gardens and parks)", 
+            "Shrubby vegetation", 
+            "Pastures and natural grassland", "Forest",
+            "Open areas (i.e. beaches, burnt areas and glaciers, wetland)",
+            "Water")
+)
+
+# reclassify raster in fewer categories
+rs_clc <- classify(x = clc, as.matrix(lvl))
+
+# set labels (factor levels) for the reclassified raster
+levels(rs_clc) <- labels$Label
+
+# make loc as sf
+loc_sf <- st_as_sf(loc, coords = c("longitude","latitude"))
+st_crs(loc_sf) <- 4326
+
+# change coordinate system
+loc_sf2 <- st_transform(loc_sf, crs = st_crs(rs_clc)) 
+
+# map
+ggplot() +
+  geom_spatraster(data = rs_clc, alpha = 0.8) +
+  geom_sf(data = loc_sf2, inherit.aes = FALSE, size = 2) +
+  #geom_sf(data = world, fill = "white", color = "grey36") +
+  scale_fill_manual(labels = c("Urban", "Agricultural areas", 
+            "Artificial non-agricultural\n vegetated areas (i.e. gardens and parks)", 
+            "Shrubby vegetation", 
+            "Pastures and natural grassland", "Forest",
+            "Open areas \n(i.e. beaches, burnt areas\n and glaciers, wetland)",
+            "Water"),
+            values = c("grey", "burlywood", "grey39", "#88AB75", "#DBD56E", "#4B6858", "#DE8F6E", "#2D93AD"), na.value = "white") +
+  guides(fill=guide_legend(title="Land cover category"))+
+  theme_void() +
+  facet_wrap(~year)
+
+```
