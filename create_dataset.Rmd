@@ -17,8 +17,8 @@ We load the data and the necessary functions and packages.
 ```{r create1}
 # Load libraries
 library(tidyverse)
-library(terra)
-library(tidyterra)
+#library(terra)
+#library(tidyterra)
 library(sf)
 library(scales)
 library(wesanderson)
@@ -80,7 +80,7 @@ We provide a few graphics that capture the spatial, temporal, and taxonomical ex
 ### Spatial coverage
 We start with mapping the locations of the arrays in each year in relation to the main ecoregions occurring in Europe @ecoregions.
 ``` {r plot1}
-# we load shapefile containing ecoregions. The data were downloaded from https://ecoregions.appspot.com/ on 2025-01-20
+# we load the shapefile containing ecoregions. The data were downloaded from https://ecoregions.appspot.com/ on 2025-01-20
 ecor <- read_sf("other_data/Ecoregions2017/Ecoregions2017.shp")
 
 # data prep: extract one camera-trap site for each array per year (i.e. subproject)
@@ -104,29 +104,43 @@ loc <- loc %>%
 # number of subprojects per year
 table(loc$year)
 
-# import map background
-world <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf")
+# Turn off spherical geometry
+sf::sf_use_s2(FALSE)
 
+# convert loc to a spatial feature
+loc_sf <- st_as_sf(loc, coords = c("longitude", "latitude"), crs = 4326)
+
+# draw bounding a buffered box around locations
+ecor_crop <- st_crop(ecor, st_bbox(loc_sf) + c(-2, -2, 2, 8))
+
+# import map background
+
+#world <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf")
+pal = wes_palette("Zissou1", n = 9, "continuous")
 ggplot() +
-  geom_sf(data = ecor, aes(fill = BIOME_NAME, color = BIOME_NAME)) +
-  geom_point(data = loc, aes(x = longitude, y = latitude, colour = n_sites_cut), inherit.aes = FALSE, size = 2) +
-  coord_sf(xlim = c(min(loc$longitude)-2, max(loc$longitude)+2),
-           ylim = c(min(loc$latitude)-2, max(loc$latitude)+2)) +
-  labs(color = "Number of \nsites") +
-  scale_color_viridis_d() +
-  #theme_classic() +
+  geom_sf(data = ecor_crop, aes(colour = BIOME_NAME, fill = BIOME_NAME), size = 0.01, alpha = 0.5) +
+  scale_color_manual(values = pal) +
+  scale_fill_manual(values = pal) +
+  labs(fill = "Biomes", colour = "Biomes") +
+  guides(colour = guide_legend("Biomes"), fill = guide_legend("Biomes")) +
+  new_scale_colour() +
+  new_scale_fill() +
+  geom_sf(data = loc_sf, aes(colour = n_sites_cut), inherit.aes = FALSE, size = 2) +
+  scale_color_viridis_d(option = "E") +
+  labs(colour = "Number\nof sites") +
+  guides(colour = guide_legend(ncol = 3, byrow = TRUE)) +
   ggthemes::theme_map() +
-  theme(legend.position = "none", 
-        legend.title = element_text(vjust = 0, hjust = 0, face = "bold", size = 14),
+  theme(legend.position = "right", 
+    legend.justification = "top",
+        legend.title = element_text(vjust = 0, hjust = 0, face = "bold", size = 12),
         legend.text = element_text(size = 12),
-        strip.text = element_text(hjust = 0, face = "bold"),
+        strip.text = element_text(hjust = 0, face = "bold", size = 14),
         strip.background = element_rect(fill = "white", colour = "white")
-        panel.border = element_rect(color = "grey", fill = NA),
-        #strip.background = element_rect(fill = "grey", colour = "grey"),
-        #strip.text = element_text(vjust = 0, hjust = 0, face = "bold", size = 14, colour = 'white')) +
+        ) +
   facet_wrap(~year, ncol = 1)
 
- 
+ggsave(filename = "figures/SnapshotEurope2021_and_2022_spatial_coverage.png",
+       device = "png", units = "cm", height = 29, width = 22, dpi = 600) 
 
 ```
 
@@ -152,7 +166,6 @@ ggplot(temp, aes(y = subproject_name_no_year, color = tot_effort_cut)) +
                    yend = subproject_name_no_year), size = 1) +
   labs(x = "Sampling period", color = "Effort\n(days)") +
   scale_x_date(labels = date_format("%b")) +
-  #scale_color_viridis_d() +
   scale_color_manual(values = wes_palette("Zissou1", n = 5)) +
   scale_y_discrete(limits=rev) +
   theme_classic() +
@@ -249,6 +262,53 @@ ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage.png",
 ## Data summaries
 
 ``` {r tab1}
+# number of locations
+table(cleaned$depl$year) 
+  
+# number of subprojects (i.e. arrays)
+cleaned$depl %>% 
+  select(year, subproject_name) %>% 
+  distinct() %>% 
+  group_by(year) %>% 
+  summarise(n_subproj = n())
+
+# number of countries
+cleaned$depl %>% 
+  mutate(country = substr(subproject_name,1,2)) %>% 
+  select(year, country) %>% 
+  distinct() %>% 
+  group_by(year) %>% 
+  summarise(n_country = n())
+
+# total number of camera-trap days
+sum(temp$tot_effort)
+
+# total number of camera-trap days per year
+temp %>% 
+  group_by(year) %>% 
+  summarise(year_effort = sum(tot_effort))
+
+# % of array sampled both years
+length(unique(temp$subproject_name_no_year))
+table(table(temp$subproject_name_no_year)>1)
+
+# number of wildlife sequences by class
+cleaned$seq %>% 
+  filter(is_blank == 0 &
+         genus != "Homo" &
+           class %in% c("Aves", "Mammalia") &
+           species != "") %>% 
+  mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
+  group_by(class) %>% 
+  summarise(n_seq = n(),
+            n_species = length(unique(scientific_name)))
+
+# period of study
+temp %>% 
+  group_by(year) %>% 
+  summarize(start = min(first_day_depl),
+            end = max(last_day_depl))
+
 # camera site per array
 n_sites <- cleaned$depl %>% 
   group_by(year, subproject_name) %>% 
