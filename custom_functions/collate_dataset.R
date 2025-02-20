@@ -19,14 +19,12 @@ collate_dataset <- function(dat1 = cleaned_2021, dat2 = cleaned_2022){
                data.frame(year = 2022, dat2$proj))
   
   # info on images
-  # images <- rbind(data.frame(year = 2021, dat1$images),
-  #               data.frame(year = 2022, dat2$images))
-  # 
+  images <- rbind(data.frame(year = 2021, dat1$images),
+                data.frame(year = 2022, dat2$images))
+
   # return list
-  # cleaned_ls <- list(cam, depl, seq, proj, images)
-  # names(cleaned_ls) <- c("cam", "depl", "seq", "proj", "images")
-  cleaned_ls <- list(cam, depl, seq, proj)
-  names(cleaned_ls) <- c("cam", "depl", "seq", "proj")
+  cleaned_ls <- list(cam, depl, seq, proj, images)
+  names(cleaned_ls) <- c("cam", "depl", "seq", "proj", "images")
   
   return(cleaned_ls)
   

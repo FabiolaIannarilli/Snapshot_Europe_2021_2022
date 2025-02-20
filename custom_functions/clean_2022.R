@@ -1,5 +1,6 @@
 # function to clean dataset Snapshot Europe 2022
 
+
 clean_2022 <- function(year = 2022){
   
   # load data
@@ -7,9 +8,8 @@ clean_2022 <- function(year = 2022){
   depl <- se22_depl
   seq <- se22_seq
   proj <- se22_proj
-  
-  # rbind images files
-  #images <- rbind(se22_images0, se22_images1, se22_images2)
+  # load and rbind images files
+  images <- rbind(se22_images0, se22_images1)
   
   # remove seq before August 15th and after November 15th
   seq <- seq %>% 
@@ -21,12 +21,29 @@ clean_2022 <- function(year = 2022){
     mutate(start_date = ifelse(ymd_hms(start_date) < ymd_hms("2022-08-15 00:00:00"), "2022-08-15 00:00:00", start_date),
            end_date = ifelse(ymd_hms(end_date) > ymd_hms("2022-11-15 23:59:59"), "2022-11-15 23:59:59", end_date))
   
+  # remove subprojects
+  depl <- depl %>% 
+    filter(!(subproject_name %in% c("ES_Forest_Cantabrian Mountains_22", 
+                                    "RU_Forest_Kerzhensky Nature Reserve_22")))
+
+  # remove locations 
+  depl <- depl %>% 
+    filter(!(placename %in% c("TR_Forest_Sarikamis_22_111_F", 
+                              "TR_Forest_Sarikamis_22_39_9", 
+                              "TR_Forest_Sarikamis_22_47_F",
+                              "Biebrza National Park")))
+  
+  # remove deployments 
+  depl <- depl %>% 
+    filter(!(deployment_id %in% c("IT_ Forest_Salbertrand_ 22_Loc07_first")))
+  
+  # keep only records associated to remaining deployments
+  seq <- seq %>% filter(deployment_id %in% depl$deployment_id)
+  images <- images %>% filter(deployment_id %in% depl$deployment_id)
   
   # return list
-  #cleaned_ls <- list(cam, depl, seq, proj, images)
-  #names(cleaned_ls) <- c("cam", "depl", "seq", "proj", "images")
-  cleaned_ls <- list(cam, depl, seq, proj)
-  names(cleaned_ls) <- c("cam", "depl", "seq", "proj")
+  cleaned_ls <- list(cam, depl, seq, proj, images)
+  names(cleaned_ls) <- c("cam", "depl", "seq", "proj", "images")
   
   return(cleaned_ls)
 }
