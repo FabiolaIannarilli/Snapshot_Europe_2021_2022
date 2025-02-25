@@ -328,146 +328,66 @@ seq <- cleaned$seq %>%
   mutate(scientific_name = paste(genus, species, sep = " "))
 
 # plot raw event counts
-pal = wes_palette("Zissou1", 20, type = "continuous")
 pl1 <- seq %>% filter(n_seq > 100) %>% 
-ggplot(., aes(x = interaction(scientific_name, family, order, class), y = n_seq)) + 
-  geom_bar(stat="identity", aes(color = interaction(family, order, class), 
-                                fill = interaction(family, order, class)), alpha = 0.9) +
-  labs(y = "Number of sequences*", x = "", caption = "*Only species with more than 100 sequences") +
+ggplot(., aes(x = interaction(scientific_name, family, order, class), y = n_seq, 
+              group = as.factor(year), color = as.factor(year), fill = as.factor(year))) + 
+  geom_bar(stat="identity", alpha = 0.5, position = position_dodge(width = 0.8)) +
+  labs(y = "Number of sequences*", x = "", caption = "*Only instances with more than 100 sequences per year") +
+  scale_color_manual(values = c("#000000", "#FFBB00")) +
+  scale_fill_manual(values = c("#000000", "#FFBB00")) +
   scale_x_discrete(guide = "axis_nested", limits = rev) +
-  scale_fill_manual(values = pal) + #, type = "continuous" 
-  scale_color_manual(values = pal) + 
+  labs(color = "Year", fill = "Year") +
   coord_flip() +
   theme_classic() +
-  theme(legend.position = "none",
+  theme(legend.position = "bottom",
+        legend.title = element_text(face = "bold", size = 12),
         axis.title.x = element_text(face = "bold"),
         strip.text = element_text(hjust = 0, face = "bold"),
         strip.background = element_rect(fill = "white", colour = "white"),
-        ggh4x.axis.nestline = element_line(linewidth = 1)) +
-  facet_wrap(~year)
+        ggh4x.axis.nestline = element_line(linewidth = 1))
 
 ggsave(pl1, filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_raw_event_counts.png",
        device = "png", units = "cm", height = 29, width = 22, dpi = 600)
 
 
-# species' detection rates (by array)
+# species' detection rates (by subproject)
+# species by 
 seq2 <- cleaned$seq %>% 
   filter(species != "" & species != "No CV Result" &
            common_name != "Human-Camera Trapper" &
            common_name != "Human-Researcher" &
            common_name != "Human-Maintenance crew") %>% 
-  left_join(cleaned$depl %>% select(deployment_id, subproject_name)) %>% 
-  group_by(year, subproject_name, class, order, family, genus, species) %>% 
+  left_join(cleaned$depl %>% select(deployment_id, subproject_name, subproject_name_no_year)) %>% 
+  group_by(year, subproject_name, subproject_name_no_year, class, order, family, genus, species) %>% 
   summarise(n_seq = n()) %>% 
-  mutate(scientific_name = paste(genus, species, sep = " "))
-seq2 <- left_join(seq2, temp %>% select(subproject_name, subproject_name_no_year, tot_effort)) %>% 
-  mutate(det_rates = n_seq/tot_effort)
+  mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
+  left_join(effort %>% select(year, subproject_name, subproject_name_no_year, n_days)) %>% 
+  mutate(det_rates = n_seq/n_days) %>% 
+  ungroup()
 
 # plot raw event counts
-#pal = wes_palette("Zissou1", 20, type = "continuous")
-pl2 <- seq2 %>% filter(n_seq > 100) %>% 
-ggplot(., aes(x = interaction(scientific_name, family, order, class), y = det_rates*100)) + 
-  geom_boxplot(aes(color = interaction(family, order, class), 
-                                fill = interaction(family, order, class)), alpha = 0.9) +
-  labs(y = "Detection rates*\n(number of events per 100 trapping days)", x = "", caption = "*Only species with more than 100 sequences") +
+pl2 <- seq2 %>% filter(scientific_name %in% (seq %>% filter(n_seq > 100))$scientific_name) %>% 
+ggplot(., aes(x = interaction(scientific_name, family, order, class), y = log(det_rates*100),
+              color = as.factor(year), fill = as.factor(year))) + 
+  geom_boxplot(alpha = 0.5, position = position_dodge(width = 0.8)) +
+  labs(y = "Detection rates*\n(log10 number of events per 100 trapping days)", x = "", caption = "*Only species with more than 100 sequences per year") +
   scale_x_discrete(guide = "axis_nested", limits = rev) +
-  scale_fill_manual(values = pal) + #, type = "continuous" 
-  scale_color_manual(values = pal) + 
+  scale_color_manual(values = c("#000000", "#FFBB00")) +
+  scale_fill_manual(values = c("#000000", "#FFBB00")) +
   coord_flip() +
   theme_classic() +
   theme(legend.position = "none",
         axis.title.x = element_text(face = "bold"),
         strip.text = element_text(hjust = 0, face = "bold"),
         strip.background = element_rect(fill = "white", colour = "white"),
-        ggh4x.axis.nestline = element_line(linewidth = 1)) +
-  facet_wrap(~year)
+        ggh4x.axis.nestline = element_line(linewidth = 1))
 
 ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_det_rates.png",
        device = "png", units = "cm", height = 29, width = 22, dpi = 600)
 
 # Join plots
 ggarrange(pl1 + labs(y = "Number of sequences*\n", caption = ""), pl2 + theme(axis.text.y = element_blank()),
-          widths = c(60, 40), ncol = 2) %>% 
-ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage.png",
-       device = "png", units = "cm", height = 22, width = 49, dpi = 600)
-
-```
-### Taxonomic coverage
-
-``` {r plot3}
-# species' raw counts
-seq <- cleaned$seq %>% 
-  filter(species != "" & species != "No CV Result" &
-           common_name != "Human-Camera Trapper" &
-           common_name != "Human-Researcher" &
-           common_name != "Human-Maintenance crew") %>% 
-  group_by(year, class, order, family, genus, species) %>% 
-  summarise(n_seq = n()) %>% 
-  mutate(scientific_name = paste(genus, species, sep = " "))
-
-# plot raw event counts
-pal = wes_palette("Zissou1", 20, type = "continuous")
-pl1 <- seq %>% filter(n_seq > 100) %>% 
-ggplot(., aes(x = interaction(scientific_name, family, order, class), y = n_seq)) + 
-  # geom_bar(stat="identity", aes(color = interaction(family, order, class), 
-  #                               fill = interaction(family, order, class)), alpha = 0.9) +
-  geom_violin(aes(color = interaction(family, order, class), 
-                                fill = interaction(family, order, class)), alpha = 0.9) +
-  labs(y = "Number of sequences*", x = "", caption = "*Only species with more than 100 sequences") +
-  scale_x_discrete(guide = "axis_nested", limits = rev) +
-  scale_fill_manual(values = pal) + #, type = "continuous" 
-  scale_color_manual(values = pal) + 
-  coord_flip() +
-  theme_classic() +
-  theme(legend.position = "none",
-        axis.title.x = element_text(face = "bold"),
-        strip.text = element_text(hjust = 0, face = "bold"),
-        strip.background = element_rect(fill = "white", colour = "white"),
-        ggh4x.axis.nestline = element_line(linewidth = 1)) +
-  facet_wrap(~year)
-
-ggsave(pl1, filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_raw_event_counts.png",
-       device = "png", units = "cm", height = 29, width = 22, dpi = 600)
-
-
-# species' detection rates (by array)
-seq2 <- cleaned$seq %>% 
-  filter(species != "" & species != "No CV Result" &
-           common_name != "Human-Camera Trapper" &
-           common_name != "Human-Researcher" &
-           common_name != "Human-Maintenance crew") %>% 
-  left_join(cleaned$depl %>% select(deployment_id, subproject_name)) %>% 
-  group_by(year, subproject_name, class, order, family, genus, species) %>% 
-  summarise(n_seq = n()) %>% 
-  mutate(scientific_name = paste(genus, species, sep = " "))
-seq2 <- left_join(seq2, temp %>% select(subproject_name, subproject_name_no_year, tot_effort)) %>% 
-  mutate(det_rates = n_seq/tot_effort)
-
-# plot raw event counts
-#pal = wes_palette("Zissou1", 20, type = "continuous")
-pl2 <- seq2 %>% filter(n_seq > 100) %>% 
-ggplot(., aes(x = interaction(scientific_name, family, order, class), y = det_rates*100)) + 
-  geom_boxplot(aes(color = interaction(family, order, class), 
-                                fill = interaction(family, order, class)), alpha = 0.9) +
-  labs(y = "Detection rates*\n(number of events per 100 trapping days)", x = "", caption = "*Only species with more than 100 sequences") +
-  scale_x_discrete(guide = "axis_nested", limits = rev) +
-  scale_fill_manual(values = pal) + #, type = "continuous" 
-  scale_color_manual(values = pal) + 
-  coord_flip() +
-  theme_classic() +
-  theme(legend.position = "none",
-        axis.title.x = element_text(face = "bold"),
-        strip.text = element_text(hjust = 0, face = "bold"),
-        strip.background = element_rect(fill = "white", colour = "white"),
-        ggh4x.axis.nestline = element_line(linewidth = 1)) +
-  facet_wrap(~year)
-
-ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_det_rates.png",
-       device = "png", units = "cm", height = 29, width = 22, dpi = 600)
-
-# Join plots
-ggarrange(pl1 + labs(y = "Number of sequences*\n", caption = ""), pl2 + theme(axis.text.y = element_blank()),
-          widths = c(60, 40), ncol = 2) %>% 
+          widths = c(60, 40), ncol = 2, common.legend = TRUE, legend = "top") %>% 
 ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage.png",
        device = "png", units = "cm", height = 22, width = 49, dpi = 600)
 
@@ -532,68 +452,3 @@ mean(n_sites$n_sites)
 sd(n_sites$n_sites)
 ```
 
-## Alternative Mapping
-
-Building yearly map of locations. Use Corine Land Cover as a background with classes reclassified as forest, agricultural areas, tc (see code below).
-
-``` {r map1}
-# open CLC file
-clc <- rast("other_data/u2018_clc2018_v2020_20u1_raster100m/DATA/U2018_CLC2018_V2020_20u1.tif")
-
-# group CLC categories in fewer groups
-lvl <- (levels(clc$LABEL3))[[1]] %>% 
-  dplyr::rename("from_value" = Value) %>% 
-  mutate(to_value = c(rep(0, 9), #artificial area
-                      2, 0, 
-                      rep(1, 6),
-                      4, 
-                      rep(1, 3),
-                      rep(5, 4),
-                      rep(3, 4),
-                      rep(6, 9),
-                      rep(99, 7))) %>% 
-  select(-LABEL3)
-
-# https://docs.google.com/forms/d/12Qjqajh536XqebQRr0hwkxJDIxjr9zF9EiDEpC8lbg4/edit
-
-# create a data frame with the new values and their corresponding labels
-labels <- data.frame(
-  ID = c(0, 1, 2, 3, 4, 5, 6, 99),
-  Label = c("Urban", "Agricultural areas", 
-            "Artificial non-agricultural vegetated areas (i.e. gardens and parks)", 
-            "Shrubby vegetation", 
-            "Pastures and natural grassland", "Forest",
-            "Open areas (i.e. beaches, burnt areas and glaciers, wetland)",
-            "Water")
-)
-
-# reclassify raster in fewer categories
-rs_clc <- classify(x = clc, as.matrix(lvl))
-
-# set labels (factor levels) for the reclassified raster
-levels(rs_clc) <- labels$Label
-
-# make loc as sf
-loc_sf <- st_as_sf(loc, coords = c("longitude","latitude"))
-st_crs(loc_sf) <- 4326
-
-# change coordinate system
-loc_sf2 <- st_transform(loc_sf, crs = st_crs(rs_clc)) 
-
-# map
-ggplot() +
-  geom_spatraster(data = rs_clc, alpha = 0.8) +
-  geom_sf(data = loc_sf2, inherit.aes = FALSE, size = 2) +
-  #geom_sf(data = world, fill = "white", color = "grey36") +
-  scale_fill_manual(labels = c("Urban", "Agricultural areas", 
-            "Artificial non-agricultural\n vegetated areas (i.e. gardens and parks)", 
-            "Shrubby vegetation", 
-            "Pastures and natural grassland", "Forest",
-            "Open areas \n(i.e. beaches, burnt areas\n and glaciers, wetland)",
-            "Water"),
-            values = c("grey", "burlywood", "grey39", "#88AB75", "#DBD56E", "#4B6858", "#DE8F6E", "#2D93AD"), na.value = "white") +
-  guides(fill=guide_legend(title="Land cover category"))+
-  theme_void() +
-  facet_wrap(~year)
-
-```
