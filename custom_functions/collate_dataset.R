@@ -8,11 +8,12 @@ collate_dataset <- function(dat1 = cleaned_2021, dat2 = cleaned_2022){
   
   # info on deployments
   depl <- rbind(data.frame(year = 2021, dat1$depl),
-               data.frame(year = 2022, dat2$depl))
+               data.frame(year = 2022, dat2$depl)) %>% 
+    mutate(subproject_name_no_year = substr(subproject_name, 1, nchar(subproject_name)-3))
   
   # info on sequences (observations)
   seq <- rbind(data.frame(year = 2021, dat1$seq),
-                data.frame(year = 2022, dat2$seq))
+                data.frame(year = 2022, dat2$seq)) 
   
   # info on projects
   proj <- rbind(data.frame(year = 2021, dat1$proj),
