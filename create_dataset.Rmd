@@ -216,35 +216,100 @@ We then visualize the period of activity for each array in the two subsequent ye
 
 ``` {r plot2}
 # data prep: calculate period of activity of each array per year (i.e. subproject)
-temp <- cleaned$depl %>% 
-  mutate(effort = as.numeric(difftime(end_date, start_date, units = "day"))) %>% 
-  group_by(year, subproject_name) %>% 
+temp <- cleaned$depl %>%
+  group_by(year, subproject_name_no_year) %>% 
   summarize(first_day_depl = min(as.Date(start_date)),
-            last_day_depl = max(as.Date(end_date)),
-            tot_effort = round(sum(effort), 0)) %>% 
-  mutate(subproject_name_no_year = substr(subproject_name,1,nchar(subproject_name)-3),
-         first_day_depl = ymd(first_day_depl),
+            last_day_depl = max(as.Date(end_date))) %>% 
+  mutate(first_day_depl = ymd(first_day_depl),
          last_day_depl = ymd(last_day_depl),
-         tot_effort_cut = cut(tot_effort, breaks = c(1, 500, 1000, 2000, max(tot_effort)),
-                              dig.lab=10, include.lowest = TRUE))
+         sampled_both = ifelse(subproject_name_no_year %in% subproj_both$subproject_name_no_year, "Yes", "No")) %>%  
+  ungroup()
 
-ggplot(temp, aes(y = subproject_name_no_year, color = tot_effort_cut)) +
+# count number of location per subproject
+loc <- cleaned$depl %>% 
+  group_by(year, subproject_name_no_year, placename) %>% 
+  distinct() %>% 
+  ungroup()%>% 
+  group_by(year, subproject_name_no_year) %>% 
+  summarize(n_loc = n()) %>% 
+  ungroup()
+
+# merge info
+temp <- left_join(temp, loc) %>% 
+  mutate(n_loc_cut = cut(n_loc, breaks = c(1, 10, 20, 30, 50, 92), include.lowest = TRUE))
+
+# plot
+pl_both <- temp %>% 
+  filter(sampled_both == "Yes") %>% 
+ggplot(., aes(y = subproject_name_no_year, color = n_loc_cut)) +
   geom_segment(aes(x = first_day_depl, xend = last_day_depl,
                    yend = subproject_name_no_year), linewidth = 1) +
   geom_vline(xintercept = as.Date(c("2021-09-01", "2021-10-31",
                                     "2022-09-01", "2022-10-31")), color = "grey80", linetype = "dashed") +
-  labs(x = "Sampling period", color = "Effort\n(days)") +
+  labs(x = "Sampling period", color = "Number of locations") +
   scale_x_date(labels = date_format("%b")) +
-  scale_color_manual(values = wes_palette("Zissou1", n = 5)) +
+  scale_color_viridis_d() +
   scale_y_discrete(limits=rev) +
   theme_classic() +
-  theme(legend.position = "bottom",
+  theme(legend.position = "none",
         axis.title = element_blank(),
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(face = "bold", size = 12),
         panel.grid.major.y = element_line(color = "grey90"),
         strip.text = element_text(hjust = 0, face = "bold"),
         strip.background = element_rect(fill = "white", colour = "white")) +
-  facet_grid(~year, scales = "free_x")
-  
+  facet_grid(~year, scales = "free", space = "free")
+
+pl_2021_only <- temp %>% 
+  filter(sampled_both == "No" & year == "2021") %>% 
+ggplot(., aes(y = subproject_name_no_year, color = n_loc_cut)) +
+  geom_segment(aes(x = first_day_depl, xend = last_day_depl,
+                   yend = subproject_name_no_year), linewidth = 1) +
+  geom_vline(xintercept = as.Date(c("2021-09-01", "2021-10-31")), color = "grey80", linetype = "dashed") +
+  labs(x = "Sampling period", color = "Number of locations") +
+  scale_x_date(labels = date_format("%b")) +
+  scale_color_viridis_d() +
+  scale_y_discrete(limits=rev) +
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.title = element_blank(),
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(face = "bold", size = 12),
+        panel.grid.major.y = element_line(color = "grey90"),
+        strip.text = element_text(hjust = 0, face = "bold"),
+        strip.background = element_rect(fill = "white", colour = "white")) +
+  facet_grid(~year, scales = "free", space = "free") 
+
+pl_2022_only <- temp %>% 
+  filter(sampled_both == "No" & year == "2022") %>% 
+ggplot(., aes(y = subproject_name_no_year, color = n_loc_cut)) +
+  geom_segment(aes(x = first_day_depl, xend = last_day_depl,
+                   yend = subproject_name_no_year), linewidth = 1) +
+  geom_vline(xintercept = as.Date(c("2022-09-01", "2022-10-31")), color = "grey80", linetype = "dashed") +
+  labs(x = "Sampling period", color = "Number\nof\nlocations") +
+  guides(color = guide_legend(nrow = 3, byrow = TRUE)) +
+  scale_x_date(labels = date_format("%b")) +
+  scale_color_viridis_d() +
+  scale_y_discrete(limits=rev) +
+  theme_classic() +
+  theme(legend.position = "bottom",
+        legend.title = element_text(face = "bold", size = 12),
+        axis.title = element_blank(),
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(face = "bold", size = 12),
+        panel.grid.major.y = element_line(color = "grey90"),
+        strip.text = element_text(hjust = 0, face = "bold"),
+        strip.background = element_rect(fill = "white", colour = "white")) +
+  facet_grid(~year, scales = "free", space = "free") 
+
+
+# bring plots together and save
+ggarrange(annotate_figure(pl_both, top = text_grob("Sampled in both years", 
+                   color = "black", face = "bold", size = 12)), 
+          annotate_figure(ggarrange(pl_2021_only, pl_2022_only, ncol = 2), 
+                          top = text_grob("Sampled only in year:", color = "black", face = "bold", size = 12)), 
+          nrow = 2, common.legend = FALSE)
+ 
 ggsave(filename = "figures/SnapshotEurope2021_and_2022_temporal_coverage.png",
        device = "png", units = "cm", height = 29, width = 22, dpi = 600)
 ```
