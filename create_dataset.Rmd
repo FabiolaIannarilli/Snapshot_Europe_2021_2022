@@ -31,7 +31,7 @@ source("custom_functions/collate_dataset.R")
 
 # Load data
 # enter date of data download
-date_download <- "20250218"
+date_download <- "20250224"
 
 # 2021
 se21_proj <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/projects.csv"))
@@ -67,11 +67,11 @@ cleaned <- collate_dataset(dat1 = cleaned_2021, dat2 = cleaned_2022)
 We save each item in the *cleaned* list in a separate file in a folder named *DataS1*. The overall structure mimics the structure of the relational database used by Wildlife Insights. The zipped version of this folder correspond to the version shared with the associate publication @data_paper_2024. Because the data are presented in the format adopted by Wildlife Insights, we also copy to the output folder their Data Dictionary, which is included in the original data bundles downloaded from the platform.
 
 ``` {r create4}
-write.csv(cleaned$cam, file = "data_output/DataS1/SNAPSHOT_Europe_2021_2022_cameras.csv")
-write.csv(cleaned$depl, file = "data_output/DataS1/SNAPSHOT_Europe_2021_2022_deployments.csv")
-write.csv(cleaned$proj, file = "data_output/DataS1/SNAPSHOT_Europe_2021_2022_projects.csv")
-write.csv(cleaned$seq, file = "data_output/DataS1/SNAPSHOT_Europe_2021_2022_sequences.csv")
-write.csv(cleaned$images, file = "data_output/DataS1/SNAPSHOT_Europe_2021_2022_images.csv")
+write_csv(cleaned$cam, file = "data_output/DataS1/Snapshot_Europe_2021_2022_cameras.csv")
+write_csv(cleaned$depl, file = "data_output/DataS1/Snapshot_Europe_2021_2022_deployments.csv")
+write_csv(cleaned$proj, file = "data_output/DataS1/Snapshot_Europe_2021_2022_projects.csv")
+write_csv(cleaned$seq, file = "data_output/DataS1/Snapshot_Europe_2021_2022_sequences.csv")
+write_csv(cleaned$images, file = "data_output/DataS1/Snapshot_Europe_2021_2022_images.csv")
 # move info pdfs
 file.copy(from = list.files(paste0("data_input/2021_downloaded_on_", date_download), 
                             pattern = "Dictionary", 
@@ -83,219 +83,129 @@ file.copy(from = list.files(paste0("data_input/2021_downloaded_on_", date_downlo
 
 ## Data visualization and mapping
 
-We provide a few graphics that capture the spatial, temporal, and taxonomical extent of the data. These visuals are the figures presented in the Metadata document associated to this data paper.
+We create a few graphics that capture the spatial, temporal, and taxonomic extent of the data. These visuals are the figures presented in the Metadata document associated to this data paper.
 
 ### Spatial coverage
-We start with mapping the locations of the arrays in each year in relation to the main ecoregions occurring in Europe @ecoregions.
+We start with mapping the locations of the arrays in each year in relation to the main biogeoregions occurring in Europe.
 ``` {r plot1}
 # data prep: extract one camera-trap site for each array per year (i.e. subproject)
-loc <- cleaned$depl %>% 
+subproj <- cleaned$depl %>% 
   group_by(year, subproject_name) %>% 
   slice(1) %>% 
-  select(year, subproject_name, longitude, latitude)
-
-# camera site per array
-n_sites <- cleaned$depl %>% 
-  group_by(year, subproject_name) %>% 
-  summarize(n_sites = n())
-
-# bring info together
-loc <- left_join(loc, n_sites)
-
-max_n_sites <- max(loc$n_sites)
-loc <- loc %>% 
-  #filter(n_sites > 3) %>% 
-  mutate(n_sites_cut = cut(n_sites, breaks = c(2, 10, 15, 20, 40, max_n_sites), include.lowest = TRUE))
+  select(year, subproject_name, longitude, latitude, subproject_name_no_year) 
 
 # number of subprojects per year
-table(loc$year)
+table(subproj$year)
+
+# was a subproject active in both years?
+subproj_both <- subproj %>% 
+  group_by(subproject_name_no_year) %>% 
+  summarise(n_years = n()) %>% 
+  filter(n_years == 2)
+
+# bring info back to loc dataframe
+subproj <- subproj %>% 
+  mutate(sampled_both = ifelse(subproject_name_no_year %in% subproj_both$subproject_name_no_year, "Yes", "No"))
 
 # Turn off spherical geometry
 sf::sf_use_s2(FALSE)
 
 # convert loc to a spatial feature
-loc_sf <- st_as_sf(loc, coords = c("longitude", "latitude"), crs = 4326)
+subproj_sf <- st_as_sf(subproj, coords = c("longitude", "latitude"), crs = 4326)
 
-# extract subproject names without year 
-subproj <- n_sites %>% 
-  mutate(subproject_name_no_year = substr(subproject_name, 1, nchar(subproject_name)-3))
-
-# we load the shapefile containing ecoregions. The data were downloaded from https://ecoregions.appspot.com/ on 2025-01-20
-ecor <- read_sf("other_data/Ecoregions2017/Ecoregions2017.shp")
-
-# draw bounding a buffered box around locations
-ecor_crop <- st_crop(ecor, st_bbox(loc_sf) + c(-2, -2, 2, 8))
-
-# group to remove boundaries within ecoregion
-ecor_crop <- ecor_crop %>% 
-    group_by(BIOME_NAME) %>%
-    summarise(geometry = sf::st_union(geometry)) %>%
-    ungroup()
-
-# plot
-pal = wes_palette("Zissou1", n = 9, "continuous")
-ggplot() +
-  geom_sf(data = ecor_crop, aes(colour = BIOME_NAME, fill = BIOME_NAME), 
-          size = 0.01, alpha = 0.5 ) +
-  scale_color_manual(values = pal) +
-  scale_fill_manual(values = pal) +
-  labs(fill = "Biomes") +
-  guides(colour = "none", fill = guide_legend("Biomes", ncol = 1)) +
-  new_scale_colour() +
-  new_scale_fill() +
-  geom_sf(data = loc_sf, aes(fill = n_sites_cut), inherit.aes = FALSE, 
-          size = 2, shape = 21, colour = "black") +
-  #scale_color_viridis_d(option = "E") +
-  scale_fill_viridis_d(option = "E") +
-  labs(fill = "Number\nof sites") +
-  guides(fill = guide_legend(ncol = 1, byrow = TRUE)) +
-  ggthemes::theme_map() +
-  theme(legend.position = "bottom", 
-    legend.justification = "top",
-        legend.title = element_text(vjust = 1, hjust = 1, face = "bold", size = 12),
-        legend.text = element_text(size = 12),
-        strip.text = element_text(hjust = 0, face = "bold", size = 14),
-        strip.background = element_rect(fill = "white", colour = "white")
-        ) +
-  facet_wrap(~year, ncol = 2)
-
-ggsave(filename = "figures/SnapshotEurope2021_and_2022_spatial_coverage_EcoRegion.png",
-       device = "png", units = "cm", height = 29, width = 22, dpi = 600) 
-
-# ALTERNATIVE: to avoid point overlap
-# make grid
-loc_grid <- ecor_crop %>% 
-  st_make_grid(n = c(20, 20))
-
-# crop grid
-loc_grid_map <- st_intersection(ecor_crop, loc_grid) %>% 
-  st_as_sf() %>% 
-  mutate(grid_id = 1:n())
-
-# fill grid
-loc_per_cell<- loc_grid_map %>% 
-  st_join(loc_sf) %>% 
-  group_by(grid_id, year) %>% 
-  summarize(total = sum(!is.na(subproject_name))) %>% 
-  ungroup()
-
-# plot
-pal = wes_palette("Zissou1", n = 9, "continuous")
-ggplot() +
-  geom_sf(data = ecor_crop, aes(colour = BIOME_NAME, fill = BIOME_NAME), 
-          size = 0.01, alpha = 0.5 ) +
-  scale_color_manual(values = pal) +
-  scale_fill_manual(values = pal) +
-  labs(fill = "Biomes") +
-  guides(colour = "none", fill = guide_legend("Biomes", ncol = 1)) +
-  new_scale_colour() +
-  new_scale_fill() +
-  geom_sf(data = loc_per_cell, aes(fill = total), colour = NA) +
-  # geom_sf(data = loc_sf, aes(fill = n_sites_cut), inherit.aes = FALSE, 
-  #         size = 2, shape = 21, colour = "black") +
-  #scale_color_viridis_d(option = "E") +
-  #scale_fill_viridis_d(option = "E") +
-  #labs(fill = "Number\nof sites") +
-  guides(fill = guide_legend(ncol = 1, byrow = TRUE)) +
-  ggthemes::theme_map() +
-  theme(legend.position = "bottom", 
-    legend.justification = "top",
-        legend.title = element_text(vjust = 1, hjust = 1, face = "bold", size = 12),
-        legend.text = element_text(size = 12),
-        strip.text = element_text(hjust = 0, face = "bold", size = 14),
-        strip.background = element_rect(fill = "white", colour = "white")
-        ) +
-  facet_wrap(~year, ncol = 2)
-
-ggsave(filename = "figures/SnapshotEurope2021_and_2022_spatial_coverage_EcoRegion_gridded_loc.png",
-       device = "png", units = "cm", height = 29, width = 22, dpi = 600) 
-
-# with lines connected to locations
-library("ggrepel")
-# plot
-pal = wes_palette("Zissou1", n = 9, "continuous")
-ggplot() +
-    geom_sf(data = ecor_crop, aes(colour = BIOME_NAME, fill = BIOME_NAME), 
-            size = 0.01, alpha = 0.5 ) +
-    scale_color_manual(values = pal) +
-    scale_fill_manual(values = pal) +
-    labs(fill = "Biomes") +
-    guides(colour = "none", fill = guide_legend("Biomes", ncol = 1)) +
-    new_scale_colour() +
-    new_scale_fill() +
-    geom_sf(data = loc_sf, aes(fill = n_sites_cut), inherit.aes = FALSE, 
-            size = 2, shape = 21, colour = "black") +
-    scale_fill_viridis_d(option = "E") +
-    labs(fill = "Number\nof sites") +
-    ggrepel::geom_text_repel(data = head(loc_sf), aes(label = subproject_name, geometry = geometry),
-                             stat = "sf_coordinates", min.segment.length = 0,
-                             fontface = "bold", 
-                             nudge_x = c(1, -1.5, 2, 2, -1), 
-                             nudge_y = c(0.25, -0.25, 0.5, 0.5, -0.5), 
-                             vjust = .5,
-                             size = 4.5, direction = "y", 
-                             hjust = 0, 
-                             segment.size = 0.2,
-                             na.rm = TRUE, xlim = c(-100, 100), ylim = c(-100, 100)) + 
-    coord_sf(clip = "off") +
-  scale_x_continuous(expand = expansion(mult = 0.5)) +
-    guides(fill = guide_legend(ncol = 1, byrow = TRUE)) +
-    ggthemes::theme_map() +
-    theme(legend.position = "right", 
-          plot.margin = margin(t = 2, r = 3, b = 2.5, l = 2, "cm"),
-          legend.justification = "top",
-          legend.title = element_text(vjust = 1, hjust = 1, face = "bold", size = 12),
-          legend.text = element_text(size = 12),
-          strip.text = element_text(hjust = 0, face = "bold", size = 14),
-          strip.background = element_rect(fill = "white", colour = "white")
-    ) +
-    facet_wrap(~year, ncol = 1)
-
-ggsave(filename = "figures/SnapshotEurope2021_and_2022_spatial_coverage_EcoRegion.png",
-       device = "png", units = "cm", height = 29, width = 22, dpi = 600) 
-
-
-# ALTERNATIVE
-### only for EEA Biogeoregion
-# alternative: EEA Biogeoregions downloaded from https://www.eea.europa.eu/en/datahub/datahubitem-view/11db8d14-f167-4cd5-9205-95638dfd9618 on 2025-02-18
+# load EEA Biogeoregions downloaded from https://www.eea.europa.eu/en/datahub/datahubitem-view/11db8d14-f167-4cd5-9205-95638dfd9618 on 2025-02-18
 ecor <- read_sf("other_data/eea_v_3035_1_mio_biogeo-regions_p_2016_v01_r00/BiogeoRegions2016.shp")
 
-
-loc_sf <- st_transform(loc_sf, 
+# transform projection
+subproj_sf <- st_transform(subproj_sf, 
                        crs = st_crs("+proj=moll +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +type=crs"))
 ecor <- st_transform(ecor,
                      crs = st_crs("+proj=moll +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +type=crs"))
 
-# draw bounding a buffered box around locations
-ecor_crop <- st_crop(ecor, st_bbox(loc_sf) + c(-200000, -200000, 200000, 800000))
+# draw a buffered box around locations
+ecor_crop <- st_crop(ecor, st_bbox(subproj_sf) + c(-200000, -200000, 200000, 800000))
 
-# import map background
-
-#world <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf")
+# set palette and plot map
 pal = wes_palette("Zissou1", n = 11, "continuous")
-ggplot() +
+pl1 <- ggplot() +
   geom_sf(data = ecor_crop, aes(colour = code, fill = code), size = 0.01, alpha = 0.5) +
   scale_color_manual(values = pal) +
   scale_fill_manual(values = pal) +
   labs(fill = "Bio-geographical Region", colour = "Bio-geographical Region") +
   guides(colour = guide_legend("Bio-geographical Region"), fill = guide_legend("Bio-geographical Region")) +
+  guides(colour = "none", fill = "none") +
   new_scale_colour() +
   new_scale_fill() +
-  geom_sf(data = loc_sf, aes(colour = n_sites_cut), inherit.aes = FALSE, size = 2) +
-  scale_color_viridis_d(option = "E") +
-  labs(colour = "Number\nof sites") +
+  geom_sf(data = subproj_sf, aes(fill = sampled_both, shape = sampled_both),
+          colour = "black", inherit.aes = FALSE, size = 2, alpha = 0.5) +
+  scale_fill_manual(values = c("purple", "green")) +
+  scale_shape_manual(values = c(21, 24)) +
+  labs(fill = "Sampled both years?", shape = "Sampled both years?") +
   guides(colour = guide_legend(ncol = 3, byrow = TRUE)) +
   ggthemes::theme_map() +
-  theme(legend.position = "right", 
-    legend.justification = "top",
+  theme(legend.position = "bottom", 
+        legend.justification = "top",
         legend.title = element_text(vjust = 0, hjust = 0, face = "bold", size = 12),
         legend.text = element_text(size = 12),
         strip.text = element_text(hjust = 0, face = "bold", size = 14),
         strip.background = element_rect(fill = "white", colour = "white")
         ) +
-  facet_wrap(~year, ncol = 1)
+  facet_wrap(~year, ncol = 2)
 
-ggsave(filename = "figures/SnapshotEurope2021_and_2022_spatial_coverage.png",
+# plot number of array by biogeoregion and year
+subproj_sf_bgr <- st_intersection(ecor_crop, subproj_sf)
+subproj_sf_bgr_summ <- subproj_sf_bgr %>% 
+  group_by(code, year) %>% 
+  summarise(n_subproj = n())
+
+pl2 <- ggplot(subproj_sf_bgr_summ, aes(x = reorder(code, n_subproj), y = n_subproj, 
+                                group = year, color = code, fill = code, alpha = as.factor(year))) +
+  geom_bar(stat = "identity", width = 0.7, position = position_dodge(width = 0.8)) +
+  scale_color_manual(values = pal) +
+  scale_fill_manual(values = pal) +
+  scale_alpha_manual(values = c(0.8, 0.3), labels = c("2021", "2022")) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  labs(fill = "Bio-geographical Region", colour = "Bio-geographical Region", 
+       x = "Bio-geographical Region", y = "Number of subprojects") +
+  guides(colour = "none", fill = "none") +
+  coord_flip() +
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.title = element_text(face = "bold", size = 12))
+
+# plot effort (i.e. number of sampling days) by biogeoregion and year
+effort <- cleaned$depl %>% 
+  mutate(n_days = as.numeric(difftime(as.Date(end_date), as.Date(start_date), units = "day"))) %>% 
+  group_by(subproject_name) %>% 
+  summarise(n_days = sum(n_days))
+effort <- subproj_sf_bgr %>% 
+  left_join(effort) %>% 
+  left_join(as.data.frame(subproj_sf_bgr_summ) %>% select(code, year, n_subproj))
+
+
+pl3 <- ggplot(effort, aes(x = reorder(code, n_subproj), y = n_days, 
+                   color = code, fill = code, alpha = as.factor(year))) +
+  geom_boxplot(width = 0.7, position = position_dodge(width = 0.8)) +
+  scale_color_manual(values = pal) +
+  scale_fill_manual(values = pal) +
+  scale_alpha_manual(values = c(0.8, 0.3), labels = c("2021", "2022")) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  coord_flip() +
+  labs(y = "Number of sampling days", x = "Bio-geographical Region") +
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.title = element_text(face = "bold", size = 12),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank())
+
+
+# bring plots together
+ggarrange(pl1, 
+          ggarrange(pl2, pl3, ncol = 2),
+          nrow = 2, labels = c("A", "B"))
+ggarrange(ggarrange(pl2, pl3, ncol = 1), pl1, 
+          ncol = 2)
+ggsave(filename = "figures/SnapshotEurope2021_and_2022_spatial_coverage_and_effort.png",
        device = "png", units = "cm", height = 29, width = 22, dpi = 600) 
 
 ```
