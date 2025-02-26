@@ -6,9 +6,10 @@
 
 This code provided in this script contains instructions to clean and collate camera-trap data collected by participants of Snapshot Europe 2021 and 2022. Collaborators uploaded and processed the images collected in September-October of each year in Wildlife Insights. Details on the two datasets and the data collection protocol are available in the metadata of the associated publication @data_paper_2024.
 
-The script is structured as folows:
-* __Data cleaning and collating__. We start by cleaning the data of the projects @SE_2021 and @SE_2022 after they have been downloaded from Wildlife Insights. We, then, collate the cleaned version of these two datasets into one, which is the version shared in the associated publication @data_paper_2024. 
-* __Data exploration and visualization__. We visually explore the data and create the figures and summaries reported in the metadata file of @data_paper_2024.
+The script is structured as follows:
+* __Data cleaning__. We start by cleaning the data of the projects @SE_2021 and @SE_2022 after they have been downloaded from Wildlife Insights. We, then, collate the cleaned version of these two datasets into one, which is the version shared in the associated publication @data_paper_2024. 
+* __Data visualization__. We visually explore the data and create the figures reported in the metadata file of @data_paper_2024.
+* __Data summaries__. We calculate the summaries that are included in the metadata file of @data_paper_2024.
 
 ## Data cleaning
 
@@ -17,8 +18,7 @@ We load the data and the necessary functions and packages.
 ```{r create1}
 # Load libraries
 library(tidyverse)
-#library(terra)
-#library(tidyterra)
+library(elevatr)
 library(sf)
 library(scales)
 library(wesanderson)
@@ -64,7 +64,7 @@ We now collate each element (e.g. *seq*, that is the object containing the seque
 cleaned <- collate_dataset(dat1 = cleaned_2021, dat2 = cleaned_2022) 
 ```
 
-We save each item in the *cleaned* list in a separate file in a folder named *DataS1*. The overall structure mimics the structure of the relational database used by Wildlife Insights. The zipped version of this folder correspond to the version shared with the associate publication @data_paper_2024. Because the data are presented in the format adopted by Wildlife Insights, we also copy to the output folder their Data Dictionary, which is included in the original data bundles downloaded from the platform.
+We save each item in the *cleaned* list in a separate file in a folder named *DataS1*. The overall structure mimics the structure of the relational database used by Wildlife Insights. The zipped version of this folder correspond to the version shared with the associate publication @data_paper_2024. 
 
 ``` {r create4}
 write_csv(cleaned$cam, file = "data_output/DataS1/Snapshot_Europe_2021_2022_cameras.csv")
@@ -72,12 +72,6 @@ write_csv(cleaned$depl, file = "data_output/DataS1/Snapshot_Europe_2021_2022_dep
 write_csv(cleaned$proj, file = "data_output/DataS1/Snapshot_Europe_2021_2022_projects.csv")
 write_csv(cleaned$seq, file = "data_output/DataS1/Snapshot_Europe_2021_2022_sequences.csv")
 write_csv(cleaned$images, file = "data_output/DataS1/Snapshot_Europe_2021_2022_images.csv")
-# move info pdfs
-file.copy(from = list.files(paste0("data_input/2021_downloaded_on_", date_download), 
-                            pattern = "Dictionary", 
-                            full.names = TRUE, 
-                            recursive = TRUE), 
-          to = "data_output/DataS1/")
 
 ```
 
@@ -199,12 +193,10 @@ pl3 <- ggplot(effort, aes(x = reorder(code, n_subproj), y = n_days,
         axis.text.y = element_blank())
 
 
-# bring plots together
+# bring plots together and save
 ggarrange(pl1, 
           ggarrange(pl2, pl3, ncol = 2),
-          nrow = 2, labels = c("A", "B"))
-ggarrange(ggarrange(pl2, pl3, ncol = 1), pl1, 
-          ncol = 2)
+          nrow = 2, labels = c("A", "B")) %>% 
 ggsave(filename = "figures/SnapshotEurope2021_and_2022_spatial_coverage_and_effort.png",
        device = "png", units = "cm", height = 29, width = 22, dpi = 600) 
 
@@ -308,8 +300,7 @@ ggarrange(annotate_figure(pl_both, top = text_grob("Sampled in both years",
                    color = "black", face = "bold", size = 12)), 
           annotate_figure(ggarrange(pl_2021_only, pl_2022_only, ncol = 2), 
                           top = text_grob("Sampled only in year:", color = "black", face = "bold", size = 12)), 
-          nrow = 2, common.legend = FALSE)
- 
+          nrow = 2, common.legend = FALSE) %>% 
 ggsave(filename = "figures/SnapshotEurope2021_and_2022_temporal_coverage.png",
        device = "png", units = "cm", height = 29, width = 22, dpi = 600)
 ```
@@ -342,6 +333,7 @@ ggplot(., aes(x = interaction(scientific_name, family, order, class), y = n_seq,
   theme(legend.position = "bottom",
         legend.title = element_text(face = "bold", size = 12),
         axis.title.x = element_text(face = "bold"),
+        axis.text.y = element_text(size = 12),
         strip.text = element_text(hjust = 0, face = "bold"),
         strip.background = element_rect(fill = "white", colour = "white"),
         ggh4x.axis.nestline = element_line(linewidth = 1))
@@ -378,6 +370,7 @@ ggplot(., aes(x = interaction(scientific_name, family, order, class), y = log(de
   theme_classic() +
   theme(legend.position = "none",
         axis.title.x = element_text(face = "bold"),
+        axis.text.y = element_text(size = 12),
         strip.text = element_text(hjust = 0, face = "bold"),
         strip.background = element_rect(fill = "white", colour = "white"),
         ggh4x.axis.nestline = element_line(linewidth = 1))
@@ -386,10 +379,14 @@ ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_det_ra
        device = "png", units = "cm", height = 29, width = 22, dpi = 600)
 
 # Join plots
-ggarrange(pl1 + labs(y = "Number of sequences*\n", caption = ""), pl2 + theme(axis.text.y = element_blank()),
-          widths = c(60, 40), ncol = 2, common.legend = TRUE, legend = "top") %>% 
-ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage.png",
-       device = "png", units = "cm", height = 22, width = 49, dpi = 600)
+# ggarrange(pl1 + labs(y = "Number of sequences*\n", caption = ""), pl2 + theme(axis.text.y = element_blank()),
+#           widths = c(60, 40), ncol = 2, common.legend = TRUE, legend = "top") %>%
+# ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_vertical.png",
+#        device = "png", units = "cm", height = 22, width = 49, dpi = 600)
+ggarrange(pl1 + labs(caption = ""), pl2, 
+          heights = c(50, 50), ncol = 1, common.legend = TRUE, legend = "top") %>% 
+ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_vertical.png",
+       device = "png", units = "cm", height = 34, width = 22, dpi = 600)
 
 ```
 
@@ -415,16 +412,17 @@ cleaned$depl %>%
   summarise(n_country = n())
 
 # total number of camera-trap days
-sum(temp$tot_effort)
+sum(effort$n_days)
 
 # total number of camera-trap days per year
-temp %>% 
+effort %>% 
   group_by(year) %>% 
-  summarise(year_effort = sum(tot_effort))
+  summarise(year_effort = sum(n_days))
 
 # % of array sampled both years
-length(unique(temp$subproject_name_no_year))
-table(table(temp$subproject_name_no_year)>1)
+length(unique(effort$subproject_name_no_year))
+table(table(effort$subproject_name_no_year)>1)
+100*table(table(effort$subproject_name_no_year)>1)/length(unique(effort$subproject_name_no_year))
 
 # number of wildlife sequences by class
 cleaned$seq %>% 
@@ -450,5 +448,72 @@ n_sites <- cleaned$depl %>%
 range(n_sites$n_sites)
 mean(n_sites$n_sites)
 sd(n_sites$n_sites)
+
+# trap days
+range(effort$n_days)
+mean(effort$n_days)
+sd(effort$n_days)
+
+# number of sequences per species
+cleaned$seq %>% 
+    filter(is_blank == 0 &
+               genus != "Homo" &
+               class %in% c("Aves", "Mammalia") &
+               species != "") %>% 
+  mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
+  group_by(class, scientific_name) %>% 
+  summarise(n_seq = n())
+
+# number of sequences per species and year
+cleaned$seq %>% 
+    filter(is_blank == 0 &
+               genus != "Homo" &
+               class %in% c("Aves", "Mammalia") &
+               species != "") %>% 
+  mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
+  group_by(class, scientific_name, year) %>% 
+  summarise(n_seq = n())
+
+# number of sequences per Homo sapiens (excluding research activities)
+table((cleaned$seq %>% 
+    filter(is_blank == 0 &
+               genus == "Homo" &
+           common_name != "Human-Camera Trapper" &
+           common_name != "Human-Researcher" &
+           common_name != "Human-Maintenance crew") %>% 
+  mutate(scientific_name = paste(genus, species, sep = " ")))$year)
+
+# number of sequences per domestic animals
+table((cleaned$seq %>% 
+    filter(is_blank == 0) %>% 
+  mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
+  filter(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus", 
+                                "Equus asinus", "Equus caballus", "Gallus gallus domesticus",
+                                "Ovis aries")))$year)
+
+# latitudinal and longitudinal range by year
+subproj %>% 
+  group_by(year) %>% 
+  summarise(min_lat = min(latitude),
+            max_lat = max(latitude),
+            min_lng = min(longitude),
+            max_lng = max(longitude))
+
+# range in elevation
+ele <- get_elev_point(subproj_sf, src = "aws")
+ele %>% 
+  group_by(year) %>% 
+  summarise(min_ele = min(elevation),
+            max_ele = max(elevation))
+
+# rangepercent sequences outside Sept-Oct
+table((cleaned$seq %>% 
+  mutate(inside = ifelse(month(start_time) %in% c("9", "10"), "Yes", "No")))$inside)
+
+# habitat types
+subproj %>% 
+  mutate(habitat = str_split(subproject_name, pattern = "_")[[1]][2]) %>% 
+  group_by(year, habitat) %>% 
+  summarise(n_subproj = n())
 ```
 
