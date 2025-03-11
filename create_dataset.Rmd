@@ -97,7 +97,7 @@ subproj_both <- subproj %>%
   summarise(n_years = n()) %>% 
   filter(n_years == 2)
 
-# bring info back to loc dataframe
+# bring info back to subproj dataframe
 subproj <- subproj %>% 
   mutate(sampled_both = ifelse(subproject_name_no_year %in% subproj_both$subproject_name_no_year, "Yes", "No"))
 
@@ -171,7 +171,8 @@ pl2 <- ggplot(subproj_sf_bgr_summ, aes(x = reorder(code, n_subproj), y = n_subpr
 effort <- cleaned$depl %>% 
   mutate(n_days = as.numeric(difftime(as.Date(end_date), as.Date(start_date), units = "day"))) %>% 
   group_by(subproject_name) %>% 
-  summarise(n_days = sum(n_days))
+  summarise(n_days = sum(n_days),
+            n_loc = length(unique(placename)))
 effort <- subproj_sf_bgr %>% 
   left_join(effort) %>% 
   left_join(as.data.frame(subproj_sf_bgr_summ) %>% select(code, year, n_subproj))
@@ -392,7 +393,7 @@ ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_vertic
 
 ## Data summaries
 
-``` {r tab1}
+``` {r summaries}
 # number of locations
 table(cleaned$depl$year) 
   
@@ -517,3 +518,64 @@ subproj %>%
   summarise(n_subproj = n())
 ```
 
+## Tables
+The following code creates Tables 1 and 2 reported in the Metadata document associated to this data paper.
+
+``` {r tables}
+# Table 1. Sampling effort.
+tab1 <- as.data.frame(effort) %>%
+  select(year, subproject_name_no_year, n_loc, n_days) %>% 
+  pivot_wider(id_cols = subproject_name_no_year, names_from = year, values_from = c("n_days", "n_loc"), values_fill = 0)
+write.csv(tab1, file = "tables/Table_Effort_by_subproject.csv")  
+
+# Table 2. Species list.
+# number of sequences per species and year
+wild <- cleaned$seq %>% 
+    filter(is_blank == 0 &
+               genus != "Homo" &
+               class %in% c("Aves", "Mammalia") &
+               species != "") %>% 
+  mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
+  filter(!(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus", 
+                                "Equus asinus", "Equus caballus", "Gallus gallus domesticus",
+                                "Ovis aries", "Sus scrofa scrofa"))) %>% 
+  group_by(class, scientific_name, common_name, year) %>% 
+  summarise(n_seq = n()) %>% 
+  mutate(Group = "Wild species") %>% 
+  pivot_wider(id_cols = NULL, names_from = year, values_from = n_seq, values_fill = 0) %>% 
+  select(Group, class, common_name, scientific_name, `2021`, `2022`) 
+
+# number of sequences per Homo sapiens (excluding research activities)
+homo <- cleaned$seq %>% 
+    filter(is_blank == 0 &
+               genus == "Homo" &
+           common_name != "Human-Camera Trapper" &
+           common_name != "Human-Researcher" &
+           common_name != "Human-Maintenance crew") %>% 
+  mutate(scientific_name = "Homo sapiens",
+         common_name = "Human") %>% 
+  group_by(class, scientific_name, common_name, year) %>% 
+  summarise(n_seq = n()) %>% 
+  mutate(Group = "Human") %>% 
+  select(Group, class, common_name, scientific_name, year, n_seq) %>% 
+  pivot_wider(id_cols = NULL, names_from = year, values_from = n_seq, values_fill = 0)
+  
+
+# number of sequences per domestic animals
+domestic <- cleaned$seq %>% 
+    filter(is_blank == 0) %>% 
+  mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
+  filter(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus", 
+                                "Equus asinus", "Equus caballus", "Gallus gallus domesticus",
+                                "Ovis aries", "Sus scrofa scrofa")) %>% 
+  mutate(common_name = ifelse(common_name == "Dog-on-leash", "Domestic Dog", common_name)) %>% 
+  group_by(class, scientific_name, common_name, year) %>% 
+  summarise(n_seq = n()) %>% 
+  mutate(Group = "Domestic species") %>% 
+  select(Group, class, common_name, scientific_name, year, n_seq) %>% 
+  pivot_wider(id_cols = NULL, names_from = year, values_from = n_seq, values_fill = 0)
+
+tab2 <- rbind(wild, domestic, homo)
+write.csv(tab2, file = "tables/Table_Sequences_by_species.csv")  
+
+```
