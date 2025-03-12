@@ -526,6 +526,10 @@ The following code creates Tables 1 and 2 reported in the Metadata document asso
 tab1 <- as.data.frame(effort) %>%
   select(year, subproject_name_no_year, n_loc, n_days) %>% 
   pivot_wider(id_cols = subproject_name_no_year, names_from = year, values_from = c("n_days", "n_loc"), values_fill = 0)
+table(tab1$n_days_2021)
+table(tab1$n_days_2022)
+table(tab1$n_loc_2021)
+table(tab1$n_loc_2022)
 write.csv(tab1, file = "tables/Table_Effort_by_subproject.csv")  
 
 # Table 2. Species list.
