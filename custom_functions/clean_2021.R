@@ -1,14 +1,5 @@
 # function to clean dataset Snapshot Europe 2021
 
-# TO DO
-# remove location GER_Forest_Bavarian Forest National Park_21_loc_20
-# remove location 
-# remove location 
-# remove location 
-# remove location 
-# remove locations SW_Forest_Sodermanland_21_Loc_04, SW_Forest_Sodermanland_21_Loc_08,
-# remove locations SW_Forest_Sodermanland_21_Loc_02, SW_Forest_Sodermanland_21_Loc_10
-# fix SE_Forest_SÃ¶dermanland
 
 clean_2021 <- function(year = 2021){
   
@@ -43,6 +34,10 @@ clean_2021 <- function(year = 2021){
                               "SW_Forest_Sodermanland_21_Loc_08",
                               "SW_Forest_Sodermanland_21_Loc_02", 
                               "SW_Forest_Sodermanland_21_Loc_10")))
+  
+  # remove deployments 
+  depl <- depl %>% 
+    filter(!(deployment_id %in% c("ES_Wetland_Aiguamolls_Empordà_21_loc_8.2 09/06/2021")))
   
   # keep only records associated to remaining deployments
   seq <- seq %>% filter(deployment_id %in% depl$deployment_id)
