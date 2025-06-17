@@ -14,7 +14,8 @@ clean_2022 <- function(year = 2022){
   # remove seq before August 15th and after November 15th
   seq <- seq %>% 
     filter(ymd_hms(start_time) >= ymd_hms("2022-08-15 00:00:00") &
-             ymd_hms(end_time) <= ymd_hms("2022-11-15 23:59:59")) 
+             ymd_hms(end_time) <= ymd_hms("2022-11-15 23:59:59")) %>% 
+    filter(sequence_id != "5260496")
   
   # adjust start and end dates of sampling at the different deployments
   depl <- depl %>% 

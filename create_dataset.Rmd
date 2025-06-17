@@ -31,7 +31,7 @@ source("custom_functions/collate_dataset.R")
 
 # Load data
 # enter date of data download
-date_download <- "20250317"
+date_download <- "20250603"
 
 # 2021
 se21_proj <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/projects.csv"))
@@ -395,6 +395,13 @@ ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_vertic
 
 ``` {r summaries}
 # number of locations
+cleaned$depl %>% 
+  select(project_id, placename, year) %>% 
+  distinct() %>% 
+  group_by(year) %>% 
+  summarise(n_locs = n())
+
+# number of deployments
 table(cleaned$depl$year) 
   
 # number of subprojects (i.e. arrays)
@@ -507,7 +514,7 @@ ele %>%
   summarise(min_ele = min(elevation),
             max_ele = max(elevation))
 
-# rangepercent sequences outside Sept-Oct
+# percent sequences outside Sept-Oct
 table((cleaned$seq %>% 
   mutate(inside = ifelse(month(start_time) %in% c("9", "10"), "Yes", "No")))$inside)
 
@@ -516,6 +523,11 @@ subproj %>%
   mutate(habitat = str_split(subproject_name, pattern = "_")[[1]][2]) %>% 
   group_by(year, habitat) %>% 
   summarise(n_subproj = n())
+
+# files' dimension and size
+lapply(cleaned, dim)
+files <- list.files("data_output/DataS1/", full.names = TRUE)
+(file.info(files))$size/1000
 ```
 
 ## Tables
