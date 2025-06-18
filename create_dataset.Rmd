@@ -31,7 +31,7 @@ source("custom_functions/collate_dataset.R")
 
 # Load data
 # enter date of data download
-date_download <- "20250603"
+date_download <- "20250617"
 
 # 2021
 se21_proj <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/projects.csv"))
@@ -119,32 +119,33 @@ ecor <- st_transform(ecor,
 # draw a buffered box around locations
 ecor_crop <- st_crop(ecor, st_bbox(subproj_sf) + c(-200000, -200000, 200000, 800000))
 
+# prep for mapping
+subproj_sf2 <- subproj_sf %>% mutate(sampled = ifelse(sampled_both == "Yes", "Both", as.character(year))) %>% group_by(subproject_name_no_year, sampled) %>% slice(1)
+
 # set palette and plot map
 pal = wes_palette("Zissou1", n = 11, "continuous")
 pl1 <- ggplot() +
-  geom_sf(data = ecor_crop, aes(colour = code, fill = code), size = 0.01, alpha = 0.5) +
-  scale_color_manual(values = pal) +
-  scale_fill_manual(values = pal) +
-  labs(fill = "Bio-geographical Region", colour = "Bio-geographical Region") +
-  guides(colour = guide_legend("Bio-geographical Region"), fill = guide_legend("Bio-geographical Region")) +
-  guides(colour = "none", fill = "none") +
-  new_scale_colour() +
-  new_scale_fill() +
-  geom_sf(data = subproj_sf, aes(fill = sampled_both, shape = sampled_both),
-          colour = "black", inherit.aes = FALSE, size = 2, alpha = 0.5) +
-  scale_fill_manual(values = c("purple", "green")) +
-  scale_shape_manual(values = c(21, 24)) +
-  labs(fill = "Sampled both years?", shape = "Sampled both years?") +
-  guides(colour = guide_legend(ncol = 3, byrow = TRUE)) +
-  ggthemes::theme_map() +
-  theme(legend.position = "bottom", 
-        legend.justification = "top",
-        legend.title = element_text(vjust = 0, hjust = 0, face = "bold", size = 12),
-        legend.text = element_text(size = 12),
-        strip.text = element_text(hjust = 0, face = "bold", size = 14),
-        strip.background = element_rect(fill = "white", colour = "white")
-        ) +
-  facet_wrap(~year, ncol = 2)
+    geom_sf(data = ecor_crop, aes(colour = code, fill = code), size = 0.01, alpha = 0.5) +
+    scale_color_manual(values = pal) +
+    scale_fill_manual(values = pal) +
+    labs(fill = "Bio-geographical Region", colour = "Bio-geographical Region") +
+    guides(colour = guide_legend("Bio-geographical Region"), fill = guide_legend("Bio-geographical Region")) +
+    new_scale_colour() +
+    new_scale_fill() +
+    geom_sf(data = subproj_sf2, aes(fill = sampled, shape = sampled),
+            colour = "black", inherit.aes = FALSE, size = 2, alpha = 0.8) +
+    scale_fill_manual(values = c("purple", "green", "blue")) +
+    scale_shape_manual(values = c(21, 24, 22)) +
+    labs(fill = "Year(s) sampled", shape = "Year(s) sampled") +
+    guides(colour = guide_legend(ncol = 3, byrow = TRUE)) +
+    ggthemes::theme_map() +
+    theme(legend.position = "right", 
+          legend.justification = "top",
+          legend.title = element_text(vjust = 0, hjust = 0, face = "bold", size = 12),
+          legend.text = element_text(size = 12),
+          strip.text = element_text(hjust = 0, face = "bold", size = 14),
+          strip.background = element_rect(fill = "white", colour = "white")
+    )
 
 # plot number of array by biogeoregion and year
 subproj_sf_bgr <- st_intersection(ecor_crop, subproj_sf)
