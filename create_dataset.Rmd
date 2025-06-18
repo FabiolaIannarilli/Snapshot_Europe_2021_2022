@@ -25,6 +25,8 @@ library(wesanderson)
 library(ggpubr)
 library(ggh4x)
 library(ggnewscale)
+library(ggtext)
+library(glue)
 source("custom_functions/clean_2021.R")
 source("custom_functions/clean_2022.R")
 source("custom_functions/collate_dataset.R")
@@ -321,31 +323,29 @@ seq <- cleaned$seq %>%
            common_name != "Human-Maintenance crew") %>% 
   group_by(year, class, order, family, genus, species) %>% 
   summarise(n_seq = n()) %>% 
-  mutate(scientific_name = paste(genus, species, sep = " "))
+  mutate(scientific_name = paste(genus, species, sep = " "),
+         year_ft = factor(year, levels = c("2022", "2021")))
 
 # plot raw event counts
-pl1 <- seq %>% filter(n_seq > 100) %>% 
-ggplot(., aes(x = interaction(scientific_name, family, order, class), y = n_seq, 
-              group = as.factor(year), color = as.factor(year), fill = as.factor(year))) + 
+pl_taxo1 <- seq %>% filter(n_seq > 100) %>% 
+  mutate(scientific_name_ita = glue("<i>{scientific_name}</i>")) %>%  
+  ggplot(., aes(x = interaction(scientific_name_ita, family, order, class), y = n_seq, 
+                group = year_ft, color = year_ft, fill = year_ft)) + 
   geom_bar(stat="identity", alpha = 0.5, position = position_dodge(width = 0.8)) +
   labs(y = "Number of sequences*", x = "", caption = "*Only instances with more than 100 sequences per year") +
-  scale_color_manual(values = c("#000000", "#FFBB00")) +
-  scale_fill_manual(values = c("#000000", "#FFBB00")) +
+  scale_color_manual(values = c("#FFBB00", "#000000")) +
+  scale_fill_manual(values = c("#FFBB00", "#000000")) +
   scale_x_discrete(guide = "axis_nested", limits = rev) +
   labs(color = "Year", fill = "Year") +
   coord_flip() +
   theme_classic() +
-  theme(legend.position = "bottom",
+  theme(legend.position = "none",
         legend.title = element_text(face = "bold", size = 12),
         axis.title.x = element_text(face = "bold"),
-        axis.text.y = element_text(size = 12),
+        axis.text.y = element_markdown(size = 12),
         strip.text = element_text(hjust = 0, face = "bold"),
         strip.background = element_rect(fill = "white", colour = "white"),
         ggh4x.axis.nestline = element_line(linewidth = 1))
-
-ggsave(pl1, filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_raw_event_counts.png",
-       device = "png", units = "cm", height = 29, width = 22, dpi = 600)
-
 
 # species' detection rates (by subproject)
 # species by 
@@ -360,36 +360,31 @@ seq2 <- cleaned$seq %>%
   mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
   left_join(effort %>% select(year, subproject_name, subproject_name_no_year, n_days)) %>% 
   mutate(det_rates = n_seq/n_days) %>% 
-  ungroup()
+  ungroup() %>% 
+  mutate(year_ft = factor(year, levels = c("2022", "2021")))
 
 # plot raw event counts
-pl2 <- seq2 %>% filter(scientific_name %in% (seq %>% filter(n_seq > 100))$scientific_name) %>% 
-ggplot(., aes(x = interaction(scientific_name, family, order, class), y = log(det_rates*100),
-              color = as.factor(year), fill = as.factor(year))) + 
+pl_taxo2 <- seq2 %>% filter(scientific_name %in% (seq %>% filter(n_seq > 100))$scientific_name) %>% 
+  mutate(scientific_name_ita = glue("<i>{scientific_name}</i>")) %>% 
+  ggplot(., aes(x = interaction(scientific_name_ita, family, order, class), y = log(det_rates*100),
+              color = year_ft, fill = year_ft)) + 
   geom_boxplot(alpha = 0.5, position = position_dodge(width = 0.8)) +
   labs(y = "Detection rates*\n(log10 number of events per 100 trapping days)", x = "", caption = "*Only species with more than 100 sequences per year") +
   scale_x_discrete(guide = "axis_nested", limits = rev) +
-  scale_color_manual(values = c("#000000", "#FFBB00")) +
-  scale_fill_manual(values = c("#000000", "#FFBB00")) +
+  scale_color_manual(values = c("#FFBB00", "#000000")) +
+  scale_fill_manual(values = c("#FFBB00", "#000000")) +
   coord_flip() +
   theme_classic() +
   theme(legend.position = "none",
         axis.title.x = element_text(face = "bold"),
-        axis.text.y = element_text(size = 12),
+        axis.text.y = element_markdown(size = 12),
         strip.text = element_text(hjust = 0, face = "bold"),
         strip.background = element_rect(fill = "white", colour = "white"),
         ggh4x.axis.nestline = element_line(linewidth = 1))
 
-ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_det_rates.png",
-       device = "png", units = "cm", height = 29, width = 22, dpi = 600)
-
 # Join plots
-# ggarrange(pl1 + labs(y = "Number of sequences*\n", caption = ""), pl2 + theme(axis.text.y = element_blank()),
-#           widths = c(60, 40), ncol = 2, common.legend = TRUE, legend = "top") %>%
-# ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_vertical.png",
-#        device = "png", units = "cm", height = 22, width = 49, dpi = 600)
-ggarrange(pl1 + labs(caption = ""), pl2, 
-          heights = c(50, 50), ncol = 1, common.legend = TRUE, legend = "top") %>% 
+ggarrange(pl_taxo1 + labs(caption = ""), pl_taxo2, 
+          heights = c(50, 50), ncol = 1, common.legend = FALSE) %>% 
 ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_vertical.png",
        device = "png", units = "cm", height = 34, width = 22, dpi = 600)
 
