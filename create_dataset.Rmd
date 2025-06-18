@@ -151,14 +151,16 @@ pl1 <- ggplot() +
 subproj_sf_bgr <- st_intersection(ecor_crop, subproj_sf)
 subproj_sf_bgr_summ <- subproj_sf_bgr %>% 
   group_by(code, year) %>% 
-  summarise(n_subproj = n())
+  summarise(n_subproj = n()) %>% 
+  ungroup() %>% 
+  mutate(year_ft = factor(year, levels = c("2022", "2021")))
 
 pl2 <- ggplot(subproj_sf_bgr_summ, aes(x = reorder(code, n_subproj), y = n_subproj, 
-                                group = year, color = code, fill = code, alpha = as.factor(year))) +
+                                group = year_ft, color = code, fill = code, alpha = year_ft)) +
   geom_bar(stat = "identity", width = 0.7, position = position_dodge(width = 0.8)) +
   scale_color_manual(values = pal) +
   scale_fill_manual(values = pal) +
-  scale_alpha_manual(values = c(0.8, 0.3), labels = c("2021", "2022")) +
+  scale_alpha_manual(values = c(0.3, 0.8), labels = c("2022", "2021")) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
   labs(fill = "Bio-geographical Region", colour = "Bio-geographical Region", 
        x = "Bio-geographical Region", y = "Number of subprojects") +
@@ -176,15 +178,16 @@ effort <- cleaned$depl %>%
             n_loc = length(unique(placename)))
 effort <- subproj_sf_bgr %>% 
   left_join(effort) %>% 
-  left_join(as.data.frame(subproj_sf_bgr_summ) %>% select(code, year, n_subproj))
+  left_join(as.data.frame(subproj_sf_bgr_summ) %>% select(code, year, n_subproj)) %>% 
+  mutate(year_ft = factor(year, levels = c("2022", "2021")))
 
 
 pl3 <- ggplot(effort, aes(x = reorder(code, n_subproj), y = n_days, 
-                   color = code, fill = code, alpha = as.factor(year))) +
+                   color = code, fill = code, alpha = year_ft)) +
   geom_boxplot(width = 0.7, position = position_dodge(width = 0.8)) +
   scale_color_manual(values = pal) +
   scale_fill_manual(values = pal) +
-  scale_alpha_manual(values = c(0.8, 0.3), labels = c("2021", "2022")) +
+  scale_alpha_manual(values = c(0.3, 0.8), labels = c("2022", "2021")) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
   coord_flip() +
   labs(y = "Number of sampling days", x = "Bio-geographical Region") +
