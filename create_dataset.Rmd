@@ -431,7 +431,7 @@ length(unique(effort$subproject_name_no_year))
 table(table(effort$subproject_name_no_year)>1)
 100*table(table(effort$subproject_name_no_year)>1)/length(unique(effort$subproject_name_no_year))
 
-# number of wildlife sequences by class
+# number of wildlife sequences by class (resolved at the species level)
 cleaned$seq %>% 
   filter(is_blank == 0 &
          genus != "Homo" &
@@ -441,6 +441,17 @@ cleaned$seq %>%
   group_by(class) %>% 
   summarise(n_seq = n(),
             n_species = length(unique(scientific_name)))
+
+# number of wildlife sequences by class (resolved at the genus level)
+cleaned$seq %>% 
+  filter(is_blank == 0 &
+         genus != "Homo" &
+           class %in% c("Aves", "Mammalia") &
+           species == "" & genus != "") %>% 
+  mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
+  group_by(class) %>% 
+  summarise(n_seq = n(),
+            n_genus = length(unique(scientific_name)))
 
 # period of study
 temp %>% 
@@ -536,7 +547,8 @@ The following code creates Tables 1 and 2 reported in the Metadata document asso
 # Table 1. Sampling effort.
 tab1 <- as.data.frame(effort) %>%
   select(year, subproject_name_no_year, n_loc, n_days) %>% 
-  pivot_wider(id_cols = subproject_name_no_year, names_from = year, values_from = c("n_days", "n_loc"), values_fill = 0)
+  pivot_wider(id_cols = subproject_name_no_year, names_from = year, values_from = c("n_days", "n_loc"), values_fill = 0) %>% 
+  arrange(subproject_name_no_year)
 table(tab1$n_days_2021)
 table(tab1$n_days_2022)
 table(tab1$n_loc_2021)
