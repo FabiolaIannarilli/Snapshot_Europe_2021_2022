@@ -33,7 +33,7 @@ source("custom_functions/collate_dataset.R")
 
 # Load data
 # enter date of data download
-date_download <- "20250617"
+date_download <- "20250620"
 
 # 2021
 se21_proj <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/projects.csv"))
