@@ -36,7 +36,14 @@ clean_2022 <- function(year = 2022){
   
   # remove deployments 
   depl <- depl %>% 
-    filter(!(deployment_id %in% c("IT_ Forest_Salbertrand_ 22_Loc07_first")))
+    filter(!(deployment_id %in% c("IT_ Forest_Salbertrand_ 22_Loc07_first", 
+                                  "Rizana13-BR205",
+                                  "Rizana16-BR318",
+                                  "Rizana19-BR170",
+                                  "Rizana31-BR253",
+                                  "Rizana01-BR219",
+                                  "Rizana07-BR228"
+    )))
   
   # keep only records associated to remaining deployments
   seq <- seq %>% filter(deployment_id %in% depl$deployment_id)
