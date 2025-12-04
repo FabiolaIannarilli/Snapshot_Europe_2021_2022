@@ -426,8 +426,16 @@ effort %>%
   group_by(year) %>% 
   summarise(year_effort = sum(n_days))
 
-# % of array sampled both years
+# % of array with less than 8 locations
 length(unique(effort$subproject_name_no_year))
+nrow(effort %>% filter(n_loc < 8))
+100*nrow(effort %>%  filter(n_loc < 8))/length(unique(effort$subproject_name_no_year))
+
+# mean and SD number of locations
+mean(effort$n_loc)
+sd(effort$n_loc)
+
+# % of array sampled both years
 table(table(effort$subproject_name_no_year)>1)
 100*table(table(effort$subproject_name_no_year)>1)/length(unique(effort$subproject_name_no_year))
 
@@ -506,8 +514,8 @@ table((cleaned$seq %>%
     filter(is_blank == 0) %>% 
   mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
   filter(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus", 
-                                "Equus asinus", "Equus caballus", "Gallus gallus domesticus",
-                                "Ovis aries")))$year)
+                                "Equus asinus", "Equus caballus", "Gallus gallus domesticus", 
+                                "Bubalus arnee", "Ovis aries")))$year)
 
 # latitudinal and longitudinal range by year
 subproj %>% 
