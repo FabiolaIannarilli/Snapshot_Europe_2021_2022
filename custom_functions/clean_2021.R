@@ -39,6 +39,9 @@ clean_2021 <- function(year = 2021){
   depl <- depl %>% 
     filter(!(deployment_id %in% c("ES_Wetland_Aiguamolls_Empordà_21_loc_8.2 09/06/2021")))
   
+  # remove duplicates
+  depl <- depl %>% distinct()
+  
   # keep only records associated to remaining deployments
   seq <- seq %>% filter(deployment_id %in% depl$deployment_id)
   images <- images %>% filter(deployment_id %in% depl$deployment_id)

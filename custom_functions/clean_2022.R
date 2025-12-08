@@ -45,6 +45,9 @@ clean_2022 <- function(year = 2022){
                                   "Rizana07-BR228"
     )))
   
+  # remove duplicates
+  depl <- depl %>% distinct()
+  
   # keep only records associated to remaining deployments
   seq <- seq %>% filter(deployment_id %in% depl$deployment_id)
   images <- images %>% filter(deployment_id %in% depl$deployment_id)
