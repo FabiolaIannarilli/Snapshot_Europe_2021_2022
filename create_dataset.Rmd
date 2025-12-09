@@ -1,5 +1,5 @@
 # Author: Fabiola Iannarilli
-# Date: 2025-01-20
+# Date: 2025-12-08
 
 # This script accompains the manuscript:
 # "SNAPSHOT EUROPE 2021-2022: The first coordinated, volunteer-based and European-wide camera trap surveys of terrestrial vertebrates"
@@ -121,11 +121,24 @@ ecor <- st_transform(ecor,
 # draw a buffered box around locations
 ecor_crop <- st_crop(ecor, st_bbox(subproj_sf) + c(-200000, -200000, 200000, 800000))
 
+# rename areas not classified in the background layer and fix code's factor level for plotting
+ecor_crop <- ecor_crop %>% 
+  mutate(code = ifelse(code == "Outside", "Not Classified", code),
+         code = ifelse(code == "BlackSea", "Black Sea", code),
+         code = as.factor(code), code = fct_relevel(code, "Alpine", "Anatolian", "Arctic",
+                                                    "Atlantic", "Black Sea", "Boreal", "Continental",
+                                                    "Mediterranean", "Pannonian", "Steppic", 
+                                                    "Not classified"))
+
+# reorder for plotting purposes
+ecor_crop <- rbind(ecor_crop[1:8,], ecor_crop[10:11,], ecor_crop[9,])
+
 # prep for mapping
 subproj_sf2 <- subproj_sf %>% mutate(sampled = ifelse(sampled_both == "Yes", "Both", as.character(year))) %>% group_by(subproject_name_no_year, sampled) %>% slice(1)
 
 # set palette and plot map
-pal = wes_palette("Zissou1", n = 11, "continuous")
+pal = wes_palette("Zissou1", n = 10, "continuous")
+pal[11] <- "grey85" # for areas not classified
 pl1 <- ggplot() +
     geom_sf(data = ecor_crop, aes(colour = code, fill = code), size = 0.01, alpha = 0.5) +
     scale_color_manual(values = pal) +
@@ -157,11 +170,14 @@ subproj_sf_bgr_summ <- subproj_sf_bgr %>%
   ungroup() %>% 
   mutate(year_ft = factor(year, levels = c("2022", "2021")))
 
+# Artic is not sampled, remove from palette
+pal2 <- pal[-3]
+
 pl2 <- ggplot(subproj_sf_bgr_summ, aes(x = reorder(code, n_subproj), y = n_subproj, 
                                 group = year_ft, color = code, fill = code, alpha = year_ft)) +
   geom_bar(stat = "identity", width = 0.7, position = position_dodge(width = 0.8)) +
-  scale_color_manual(values = pal) +
-  scale_fill_manual(values = pal) +
+  scale_color_manual(values = pal2) +
+  scale_fill_manual(values = pal2) +
   scale_alpha_manual(values = c(0.3, 0.8), labels = c("2022", "2021")) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
   labs(fill = "Bio-geographical Region", colour = "Bio-geographical Region", 
@@ -187,8 +203,8 @@ effort <- subproj_sf_bgr %>%
 pl3 <- ggplot(effort, aes(x = reorder(code, n_subproj), y = n_days, 
                    color = code, fill = code, alpha = year_ft)) +
   geom_boxplot(width = 0.7, position = position_dodge(width = 0.8)) +
-  scale_color_manual(values = pal) +
-  scale_fill_manual(values = pal) +
+  scale_color_manual(values = pal2) +
+  scale_fill_manual(values = pal2) +
   scale_alpha_manual(values = c(0.3, 0.8), labels = c("2022", "2021")) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
   coord_flip() +
