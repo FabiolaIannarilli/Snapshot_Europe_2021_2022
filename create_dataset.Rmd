@@ -587,9 +587,9 @@ wild <- cleaned$seq %>%
                class %in% c("Aves", "Mammalia") &
                species != "") %>% 
   mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
-  filter(!(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus", 
+  filter(!(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus", "Bubalus arnee",
                                 "Equus asinus", "Equus caballus", "Gallus gallus domesticus",
-                                "Ovis aries", "Sus scrofa scrofa"))) %>% 
+                                "Ovis aries", "Sus scrofa scrofa", "Capra aegagrus hircus"))) %>% 
   group_by(class, scientific_name, common_name, year) %>% 
   summarise(n_seq = n()) %>% 
   mutate(Group = "Wild species") %>% 
@@ -616,9 +616,9 @@ homo <- cleaned$seq %>%
 domestic <- cleaned$seq %>% 
     filter(is_blank == 0) %>% 
   mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
-  filter(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus", 
-                                "Equus asinus", "Equus caballus", "Gallus gallus domesticus",
-                                "Ovis aries", "Sus scrofa scrofa")) %>% 
+  filter(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus", "Bubalus arnee",
+                                "Equus asinus", "Equus caballus", "Gallus gallus domesticus", 
+                                "Ovis aries", "Sus scrofa scrofa", "Capra aegagrus hircus")) %>% 
   mutate(common_name = ifelse(common_name == "Dog-on-leash", "Domestic Dog", common_name)) %>% 
   group_by(class, scientific_name, common_name, year) %>% 
   summarise(n_seq = n()) %>% 
