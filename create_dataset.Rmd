@@ -26,7 +26,7 @@ library(sf)
 library(scales)
 library(wesanderson)
 library(ggpubr)
-library(ggh4x)
+library(legendry)
 library(ggnewscale)
 library(ggtext)
 library(glue)
@@ -351,31 +351,38 @@ seq <- cleaned$seq %>%
            common_name != "Human-Camera Trapper" &
            common_name != "Human-Researcher" &
            common_name != "Human-Maintenance crew") %>% 
-  group_by(year, class, order, family, genus, species) %>% 
+  mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
+  group_by(year, class, order, family, genus, species, scientific_name) %>% 
   summarise(n_seq = n()) %>% 
-  mutate(scientific_name = paste(genus, species, sep = " "),
+  pivot_wider(id_cols = c(class:species, scientific_name), 
+              names_from = year, values_from = n_seq, values_fill = 0) %>% 
+  filter(`2021` >= 100 | `2022` >= 100) %>% 
+  pivot_longer(cols = c(`2021`, `2022`), names_to = "year", values_to = "n_seq") %>%
+  mutate(scientific_name_ita = glue("<i>{scientific_name}</i>"), 
          year_ft = factor(year, levels = c("2022", "2021")))
 
 # plot raw event counts
-pl_taxo1 <- seq %>% filter(n_seq > 100) %>% 
-  mutate(scientific_name_ita = glue("<i>{scientific_name}</i>")) %>%  
-  ggplot(., aes(x = interaction(scientific_name_ita, family, order, class), y = n_seq, 
+pl_taxo1 <- seq %>% 
+  mutate(species = ifelse(species == "gallus domesticus", "gallus", species),
+         species = ifelse(species == "aegagrus hircus", "aegagrus", species)) %>% 
+  ggplot(., aes(y = interaction(species, genus, family, order, class), x = n_seq,
                 group = year_ft, color = year_ft, fill = year_ft)) + 
   geom_bar(stat="identity", alpha = 0.5, position = position_dodge(width = 0.8)) +
-  labs(y = "Number of sequences*", x = "", caption = "*Only instances with more than 100 sequences per year") +
+  labs(x = "Number of sequences*", y = "", caption = "*Only instances with more than 100 sequences in at least one of the two years") +
   scale_color_manual(values = c("#FFBB00", "#000000")) +
   scale_fill_manual(values = c("#FFBB00", "#000000")) +
-  scale_x_discrete(guide = "axis_nested", limits = rev) +
+  scale_y_discrete(guide = legendry::guide_axis_nested(
+    levels_text = list(
+      element_text(face = "italic"),
+      element_text(face = "italic"),
+      NULL, NULL, NULL)), limits = rev) +
   labs(color = "Year", fill = "Year") +
-  coord_flip() +
   theme_classic() +
   theme(legend.position = "none",
         legend.title = element_text(face = "bold", size = 12),
         axis.title.x = element_text(face = "bold"),
-        axis.text.y = element_markdown(size = 12),
-        strip.text = element_text(hjust = 0, face = "bold"),
-        strip.background = element_rect(fill = "white", colour = "white"),
-        ggh4x.axis.nestline = element_line(linewidth = 1))
+        axis.text = element_markdown(size = 12),
+        strip.text = element_text(hjust = 0, face = "bold"))
 
 # species' detection rates (by subproject)
 # species by 
@@ -394,23 +401,27 @@ seq2 <- cleaned$seq %>%
   mutate(year_ft = factor(year, levels = c("2022", "2021")))
 
 # plot raw event counts
-pl_taxo2 <- seq2 %>% filter(scientific_name %in% (seq %>% filter(n_seq > 100))$scientific_name) %>% 
-  mutate(scientific_name_ita = glue("<i>{scientific_name}</i>")) %>% 
-  ggplot(., aes(x = interaction(scientific_name_ita, family, order, class), y = log(det_rates*100),
-              color = year_ft, fill = year_ft)) + 
+pl_taxo2 <- seq2 %>% 
+  mutate(species = ifelse(species == "gallus domesticus", "gallus", species),
+         species = ifelse(species == "aegagrus hircus", "aegagrus", species)) %>%
+  filter(scientific_name %in% seq$scientific_name) %>% 
+  ggplot(., aes(y = interaction(species, genus, family, order, class), x = log(det_rates*100),
+                color = year_ft, fill = year_ft)) + 
   geom_boxplot(alpha = 0.5, position = position_dodge(width = 0.8)) +
-  labs(y = "Detection rates*\n(log10 number of events per 100 trapping days)", x = "", caption = "*Only species with more than 100 sequences per year") +
-  scale_x_discrete(guide = "axis_nested", limits = rev) +
+  labs(x = "Detection rates*\n(log10 number of events per 100 trapping days)", y = "", caption = "*Only instances with more than 100 sequences in at least one of the two years") +
+  scale_y_discrete(guide = legendry::guide_axis_nested(
+    levels_text = list(
+      element_text(face = "italic"),
+      element_text(face = "italic"),
+      NULL, NULL, NULL)), limits = rev) +
   scale_color_manual(values = c("#FFBB00", "#000000")) +
   scale_fill_manual(values = c("#FFBB00", "#000000")) +
-  coord_flip() +
   theme_classic() +
   theme(legend.position = "none",
         axis.title.x = element_text(face = "bold"),
         axis.text.y = element_markdown(size = 12),
         strip.text = element_text(hjust = 0, face = "bold"),
-        strip.background = element_rect(fill = "white", colour = "white"),
-        ggh4x.axis.nestline = element_line(linewidth = 1))
+        strip.background = element_rect(fill = "white", colour = "white"))
 
 # Join plots
 ggarrange(pl_taxo1 + labs(caption = ""), pl_taxo2, 
@@ -430,7 +441,7 @@ ggarrange(pl_taxo1 + labs(caption = ""), pl_taxo2,
 # number of locations
 cleaned$depl %>% 
   select(project_id, placename, year) %>% 
-  distinct() %>% 
+  distinct() %>% # to remove placenames with more than 1 deployment
   group_by(year) %>% 
   summarise(n_locs = n())
 
@@ -457,6 +468,7 @@ sum(effort$n_days)
 
 # total number of camera-trap days per year
 effort %>% 
+  st_drop_geometry() %>% 
   group_by(year) %>% 
   summarise(year_effort = sum(n_days))
 
@@ -502,12 +514,9 @@ temp %>%
             end = max(last_day_depl))
 
 # camera site per array
-n_sites <- cleaned$depl %>% 
-  group_by(year, subproject_name) %>% 
-  summarize(n_sites = n())
-range(n_sites$n_sites)
-mean(n_sites$n_sites)
-sd(n_sites$n_sites)
+range(effort$n_loc)
+mean(effort$n_loc)
+sd(effort$n_loc)
 
 # trap days
 range(effort$n_days)
@@ -547,9 +556,9 @@ table((cleaned$seq %>%
 table((cleaned$seq %>% 
     filter(is_blank == 0) %>% 
   mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
-  filter(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus", 
+  filter(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus",  "Bubalus arnee",
                                 "Equus asinus", "Equus caballus", "Gallus gallus domesticus", 
-                                "Bubalus arnee", "Ovis aries")))$year)
+                                "Ovis aries", "Sus scrofa scrofa", "Capra aegagrus hircus")))$year)
 
 # latitudinal and longitudinal range by year
 subproj %>% 
