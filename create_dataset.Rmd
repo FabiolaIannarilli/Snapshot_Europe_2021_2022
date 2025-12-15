@@ -351,7 +351,7 @@ ggarrange(annotate_figure(pl_both, top = text_grob("Sampled in both years",
 ``` {r plot3}
 # species' raw counts
 seq <- cleaned$seq %>% 
-  filter(species != "" & species != "No CV Result" &
+  filter(is_blank == 0 & species != "" & species != "No CV Result" &
            common_name != "Human-Camera Trapper" &
            common_name != "Human-Researcher" &
            common_name != "Human-Maintenance crew") %>% 
@@ -362,8 +362,7 @@ seq <- cleaned$seq %>%
               names_from = year, values_from = n_seq, values_fill = 0) %>% 
   filter(`2021` >= 100 | `2022` >= 100) %>% 
   pivot_longer(cols = c(`2021`, `2022`), names_to = "year", values_to = "n_seq") %>%
-  mutate(scientific_name_ita = glue("<i>{scientific_name}</i>"), 
-         year_ft = factor(year, levels = c("2022", "2021")))
+  mutate(year_ft = factor(year, levels = c("2022", "2021")))
 
 # plot raw event counts
 pl_taxo1 <- seq %>% 
@@ -391,7 +390,7 @@ pl_taxo1 <- seq %>%
 # species' detection rates (by subproject)
 # species by 
 seq2 <- cleaned$seq %>% 
-  filter(species != "" & species != "No CV Result" &
+  filter(is_blank == 0 & species != "" & species != "No CV Result" &
            common_name != "Human-Camera Trapper" &
            common_name != "Human-Researcher" &
            common_name != "Human-Maintenance crew") %>% 
@@ -431,7 +430,7 @@ pl_taxo2 <- seq2 %>%
 ggarrange(pl_taxo1 + labs(caption = ""), pl_taxo2, 
           heights = c(50, 50), ncol = 1, common.legend = FALSE) %>% 
 ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_vertical.png",
-       device = "png", units = "cm", height = 34, width = 22, dpi = 600)
+       device = "png", units = "cm", height = 34, width = 23, dpi = 600)
 
 # plot
 ggarrange(pl_taxo1 + labs(caption = ""), pl_taxo2, 
@@ -564,6 +563,14 @@ table((cleaned$seq %>%
                                 "Equus asinus", "Equus caballus", "Gallus gallus domesticus", 
                                 "Ovis aries", "Sus scrofa scrofa", "Capra aegagrus hircus")))$year)
 
+# number of blank sequences per year, and percentage over total
+cleaned$seq %>% 
+  filter(is_blank == 1) %>% 
+  group_by(year) %>% 
+  summarise(n_blank_seq = n())
+nrow(cleaned$seq %>% 
+    filter(is_blank == 1))/nrow(cleaned$seq)
+
 # latitudinal and longitudinal range by year
 subproj %>% 
   group_by(year) %>% 
@@ -582,6 +589,8 @@ ele %>%
 # percent sequences outside Sept-Oct
 table((cleaned$seq %>% 
   mutate(inside = ifelse(month(start_time) %in% c("9", "10"), "Yes", "No")))$inside)
+as.numeric((1-table((cleaned$seq %>% 
+  mutate(inside = ifelse(month(start_time) %in% c("9", "10"), "Yes", "No")))$inside)[1]/nrow(cleaned$seq))*100)
 
 # habitat types
 subproj %>% 
@@ -621,12 +630,11 @@ wild <- cleaned$seq %>%
   filter(!(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus", "Bubalus arnee",
                                 "Equus asinus", "Equus caballus", "Gallus gallus domesticus",
                                 "Ovis aries", "Sus scrofa scrofa", "Capra aegagrus hircus"))) %>% 
-  group_by(class, scientific_name, common_name, year) %>% 
+  group_by(class, family, genus, species, common_name, year) %>% 
   summarise(n_seq = n()) %>% 
   mutate(Group = "Wild species") %>% 
   pivot_wider(id_cols = NULL, names_from = year, values_from = n_seq, values_fill = 0) %>% 
-  select(Group, class, common_name, scientific_name, `2021`, `2022`) %>% 
-  rename("Taxon" = "scientific_name")
+  select(Group, class, family, genus, species, common_name, `2021`, `2022`)
 
 # number of sequences per Homo sapiens (excluding research activities)
 homo <- cleaned$seq %>% 
@@ -637,13 +645,12 @@ homo <- cleaned$seq %>%
            common_name != "Human-Maintenance crew") %>% 
   mutate(scientific_name = "Homo sapiens",
          common_name = "Human") %>% 
-  group_by(class, scientific_name, common_name, year) %>% 
+  group_by(class, family, genus, species, common_name, year) %>% 
   summarise(n_seq = n()) %>% 
   mutate(Group = "Human") %>% 
-  select(Group, class, common_name, scientific_name, year, n_seq) %>% 
+  select(Group, family, genus, species, common_name, year, n_seq) %>% 
   pivot_wider(id_cols = NULL, names_from = year, values_from = n_seq, values_fill = 0) %>% 
-  select(Group, class, common_name, scientific_name, `2021`, `2022`) %>% 
-  rename("Taxon" = "scientific_name")
+  select(Group, class, family, genus, species, common_name, `2021`, `2022`)
   
 
 # number of sequences per domestic animals
@@ -654,39 +661,37 @@ domestic <- cleaned$seq %>%
                                 "Equus asinus", "Equus caballus", "Gallus gallus domesticus", 
                                 "Ovis aries", "Sus scrofa scrofa", "Capra aegagrus hircus")) %>% 
   mutate(common_name = ifelse(common_name == "Dog-on-leash", "Domestic Dog", common_name)) %>% 
-  group_by(class, scientific_name, common_name, year) %>% 
+  group_by(class, family, genus, species, common_name, year) %>% 
   summarise(n_seq = n()) %>% 
   mutate(Group = "Domestic species") %>% 
-  select(Group, class, common_name, scientific_name, year, n_seq) %>% 
+  select(Group, class, family, genus, species, common_name, year, n_seq) %>% 
   pivot_wider(id_cols = NULL, names_from = year, values_from = n_seq, values_fill = 0) %>% 
-  select(Group, class, common_name, scientific_name, `2021`, `2022`) %>% 
-  rename("Taxon" = "scientific_name")
+  select(Group, class, family, genus, species, common_name, `2021`, `2022`) 
 
 genus <- cleaned$seq %>% 
      filter(is_blank == 0 & species == "" & genus != "") %>% 
-     group_by(class, order, family, genus, common_name, year) %>% 
+     group_by(class, family, genus, species, common_name, year) %>% 
      summarise(n_seq = n()) %>% 
      ungroup() %>% 
-     mutate(Group = "Wild species",
-            genus = paste("Genus:", genus, sep = " ")) %>% 
-     select(Group, class, common_name, genus, year, n_seq) %>% 
+     mutate(Group = "Wild species") %>% 
+     select(Group, class, family, genus, species, common_name, year, n_seq) %>% 
      pivot_wider(id_cols = NULL, names_from = year, values_from = n_seq, values_fill = 0) %>% 
-  select(Group, class, common_name, genus, `2021`, `2022`) %>% 
-  rename("Taxon" = "genus")
+  select(Group, class, family, genus, species, common_name, `2021`, `2022`)
 
 family <- cleaned$seq %>% 
-     filter(is_blank == 0 & species == "" & family != "") %>% 
-     group_by(class, order, family, genus, common_name, year) %>% 
+     filter(is_blank == 0 & species == "" & genus == "" & family != "") %>% 
+     group_by(class, family, genus, species, common_name, year) %>% 
      summarise(n_seq = n()) %>%
      ungroup() %>%  
-     mutate(Group = "Wild species",
-            family = paste("Family:", family, sep = " ")) %>% 
-     select(Group, class, common_name, family, year, n_seq) %>% 
+     mutate(Group = "Wild species") %>% 
+     select(Group, class, family, genus, species, common_name, year, n_seq) %>% 
      pivot_wider(id_cols = NULL, names_from = year, values_from = n_seq, values_fill = 0)  %>% 
-  select(Group, class, common_name, family, `2021`, `2022`) %>% 
-  rename("Taxon" = "family")
+  select(Group, class, family, genus, species, common_name, `2021`, `2022`)
 
-tab2 <- rbind(wild, domestic, genus, family, homo)
+all_wild <- rbind(wild, genus, family) %>% 
+  arrange(Group, class, family, genus, species, common_name)
+
+tab2 <- rbind(all_wild, domestic, homo)
 write.csv(tab2, file = "tables/Table_Sequences_by_species.csv")  
 
 ```
