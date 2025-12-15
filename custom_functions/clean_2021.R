@@ -9,7 +9,7 @@ clean_2021 <- function(year = 2021){
   seq <- se21_seq
   proj <- se21_proj
   # load and rbind images files
-  images <- rbind(se21_images0, se21_images1)
+  images <- rbind(se21_images0, se21_images1, se21_images2)
   
   # remove seq before August 15th and after November 15th
   seq <- seq %>% 

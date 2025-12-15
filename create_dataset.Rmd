@@ -36,7 +36,7 @@ source("custom_functions/collate_dataset.R")
 
 # Load data
 # enter date of data download
-date_download <- "20250620"
+date_download <- "20251215"
 
 # 2021
 se21_proj <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/projects.csv"))
@@ -45,6 +45,8 @@ se21_depl <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/
 se21_seq <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/sequences.csv"))
 se21_images0 <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/images_2003388_0.csv"))
 se21_images1 <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/images_2003388_1.csv"))
+se21_images2 <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/images_2003388_2.csv"))
+
 
 # 2022
 se22_proj <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/projects.csv"))
@@ -53,6 +55,8 @@ se22_depl <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/
 se22_seq <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/sequences.csv"))
 se22_images0 <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/images_2004446_0.csv"))
 se22_images1 <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/images_2004446_1.csv"))
+se22_images2 <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/images_2004446_2.csv"))
+
 
 ```
 
