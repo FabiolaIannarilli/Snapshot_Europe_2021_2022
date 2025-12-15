@@ -430,7 +430,7 @@ pl_taxo2 <- seq2 %>%
 ggarrange(pl_taxo1 + labs(caption = ""), pl_taxo2, 
           heights = c(50, 50), ncol = 1, common.legend = FALSE) %>% 
 ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_vertical.png",
-       device = "png", units = "cm", height = 34, width = 23, dpi = 600)
+       device = "png", units = "cm", height = 34, width = 27, dpi = 600)
 
 # plot
 ggarrange(pl_taxo1 + labs(caption = ""), pl_taxo2, 
@@ -689,7 +689,7 @@ family <- cleaned$seq %>%
   select(Group, class, family, genus, species, common_name, `2021`, `2022`)
 
 all_wild <- rbind(wild, genus, family) %>% 
-  arrange(Group, class, family, genus, species, common_name)
+  arrange(Group, class, family, genus, species, common_name) 
 
 tab2 <- rbind(all_wild, domestic, homo)
 write.csv(tab2, file = "tables/Table_Sequences_by_species.csv")  
