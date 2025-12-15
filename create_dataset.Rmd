@@ -586,7 +586,7 @@ ele %>%
   summarise(min_ele = min(elevation),
             max_ele = max(elevation))
 
-# percent sequences outside Sept-Oct
+# percent sequences within Sept-Oct
 table((cleaned$seq %>% 
   mutate(inside = ifelse(month(start_time) %in% c("9", "10"), "Yes", "No")))$inside)
 as.numeric((1-table((cleaned$seq %>% 
