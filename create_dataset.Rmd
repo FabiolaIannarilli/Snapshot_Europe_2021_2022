@@ -7,9 +7,12 @@
 This code provided in this script contains instructions to clean and collate camera-trap data collected by participants of Snapshot Europe 2021 and 2022. Collaborators uploaded and processed the images collected in September-October of each year in Wildlife Insights. Details on the two datasets and the data collection protocol are available in the metadata of the associated publication @data_paper_2024.
 
 The script is structured as follows:
-* __Data cleaning__. We start by cleaning the data of the projects @SE_2021 and @SE_2022 after they have been downloaded from Wildlife Insights. We, then, collate the cleaned version of these two datasets into one, which is the version shared in the associated publication @data_paper_2024. 
-* __Data visualization__. We visually explore the data and create the figures reported in the metadata file of @data_paper_2024.
-* __Data summaries__. We calculate the summaries that are included in the metadata file of @data_paper_2024.
+
+*__Data cleaning__. We start by cleaning the data of the projects @SE_2021 and @SE_2022 after they have been downloaded from Wildlife Insights. We, then, collate the cleaned version of these two datasets into one, which is the version shared in the associated publication @data_paper_2024. 
+
+*__Data visualization__. We visually explore the data and create the figures reported in the metadata file of @data_paper_2024.
+
+*__Data summaries__. We calculate the summaries that are included in the metadata file of @data_paper_2024.
 
 ## Data cleaning
 
@@ -53,20 +56,20 @@ se22_images1 <- read.csv(paste0("data_input/2022_downloaded_on_", date_download,
 
 ```
 
-We run test script to fix some known issues in both datasets.
+We run scripts to fix some known issues in both datasets.
 
 ``` {r create2}
 cleaned_2021 <- clean_2021(year = 2021)
 cleaned_2022 <- clean_2022(year = 2022)
 ```
 
-We now collate each element (e.g. *seq*, that is the object containing the sequences) of the cleaned dataset for 2021 with the corresponding items of year 2022. 
+We now collate each element (e.g. *seq*, that is the object containing the sequences) of the cleaned dataset for 2021 with the corresponding item for year 2022. 
 
 ``` {r create3}
 cleaned <- collate_dataset(dat1 = cleaned_2021, dat2 = cleaned_2022) 
 ```
 
-We save each item in the *cleaned* list in a separate file in a folder named *DataS1*. The overall structure mimics the structure of the relational database used by Wildlife Insights. The zipped version of this folder correspond to the version shared with the associate publication @data_paper_2024. 
+We save each item in the *cleaned* list in a separate file in a folder named *DataS1*. The overall structure mimics the relational database structure used by Wildlife Insights. The zipped version of this folder corresponds to the version shared with the associate publication @data_paper_2024. 
 
 ``` {r create4}
 write_csv(cleaned$cam, file = "data_output/DataS1/Snapshot_Europe_2021_2022_cameras.csv")
@@ -128,7 +131,7 @@ ecor_crop <- ecor_crop %>%
          code = as.factor(code), code = fct_relevel(code, "Alpine", "Anatolian", "Arctic",
                                                     "Atlantic", "Black Sea", "Boreal", "Continental",
                                                     "Mediterranean", "Pannonian", "Steppic", 
-                                                    "Not classified"))
+                                                    "Not Classified"))
 
 # reorder for plotting purposes
 ecor_crop <- rbind(ecor_crop[1:8,], ecor_crop[10:11,], ecor_crop[9,])
@@ -223,6 +226,11 @@ ggarrange(pl1,
 ggsave(filename = "figures/SnapshotEurope2021_and_2022_spatial_coverage_and_effort.png",
        device = "png", units = "cm", height = 29, width = 22, dpi = 600) 
 
+# plot
+ggarrange(pl1, 
+          ggarrange(pl2, pl3, ncol = 2),
+          nrow = 2, labels = c("A", "B"))
+
 ```
 
 
@@ -242,16 +250,15 @@ temp <- cleaned$depl %>%
 
 # count number of location per subproject
 loc <- cleaned$depl %>% 
-  group_by(year, subproject_name_no_year, placename) %>% 
+  select(year, subproject_name_no_year, placename) %>% 
   distinct() %>% 
-  ungroup()%>% 
   group_by(year, subproject_name_no_year) %>% 
   summarize(n_loc = n()) %>% 
   ungroup()
 
 # merge info
 temp <- left_join(temp, loc) %>% 
-  mutate(n_loc_cut = cut(n_loc, breaks = c(1, 10, 20, 30, 50, 92), include.lowest = TRUE))
+  mutate(n_loc_cut = cut(n_loc, breaks = c(1, 10, 20, 30, 50, max(loc$n_loc)), include.lowest = TRUE))
 
 # plot
 pl_both <- temp %>% 
@@ -326,6 +333,13 @@ ggarrange(annotate_figure(pl_both, top = text_grob("Sampled in both years",
           nrow = 2, common.legend = FALSE) %>% 
 ggsave(filename = "figures/SnapshotEurope2021_and_2022_temporal_coverage.png",
        device = "png", units = "cm", height = 29, width = 22, dpi = 600)
+
+# plot 
+ggarrange(annotate_figure(pl_both, top = text_grob("Sampled in both years", 
+                   color = "black", face = "bold", size = 12)), 
+          annotate_figure(ggarrange(pl_2021_only, pl_2022_only, ncol = 2), 
+                          top = text_grob("Sampled only in year:", color = "black", face = "bold", size = 12)), 
+          nrow = 2, common.legend = FALSE)
 ```
 
 ### Taxonomic coverage
@@ -403,6 +417,10 @@ ggarrange(pl_taxo1 + labs(caption = ""), pl_taxo2,
           heights = c(50, 50), ncol = 1, common.legend = FALSE) %>% 
 ggsave(filename = "figures/SnapshotEurope2021_and_2022_taxonomic_coverage_vertical.png",
        device = "png", units = "cm", height = 34, width = 22, dpi = 600)
+
+# plot
+ggarrange(pl_taxo1 + labs(caption = ""), pl_taxo2, 
+          heights = c(50, 50), ncol = 1, common.legend = FALSE)
 
 ```
 
@@ -594,7 +612,8 @@ wild <- cleaned$seq %>%
   summarise(n_seq = n()) %>% 
   mutate(Group = "Wild species") %>% 
   pivot_wider(id_cols = NULL, names_from = year, values_from = n_seq, values_fill = 0) %>% 
-  select(Group, class, common_name, scientific_name, `2021`, `2022`) 
+  select(Group, class, common_name, scientific_name, `2021`, `2022`) %>% 
+  rename("Taxon" = "scientific_name")
 
 # number of sequences per Homo sapiens (excluding research activities)
 homo <- cleaned$seq %>% 
@@ -609,7 +628,9 @@ homo <- cleaned$seq %>%
   summarise(n_seq = n()) %>% 
   mutate(Group = "Human") %>% 
   select(Group, class, common_name, scientific_name, year, n_seq) %>% 
-  pivot_wider(id_cols = NULL, names_from = year, values_from = n_seq, values_fill = 0)
+  pivot_wider(id_cols = NULL, names_from = year, values_from = n_seq, values_fill = 0) %>% 
+  select(Group, class, common_name, scientific_name, `2021`, `2022`) %>% 
+  rename("Taxon" = "scientific_name")
   
 
 # number of sequences per domestic animals
@@ -624,9 +645,35 @@ domestic <- cleaned$seq %>%
   summarise(n_seq = n()) %>% 
   mutate(Group = "Domestic species") %>% 
   select(Group, class, common_name, scientific_name, year, n_seq) %>% 
-  pivot_wider(id_cols = NULL, names_from = year, values_from = n_seq, values_fill = 0)
+  pivot_wider(id_cols = NULL, names_from = year, values_from = n_seq, values_fill = 0) %>% 
+  select(Group, class, common_name, scientific_name, `2021`, `2022`) %>% 
+  rename("Taxon" = "scientific_name")
 
-tab2 <- rbind(wild, domestic, homo)
+genus <- cleaned$seq %>% 
+     filter(is_blank == 0 & species == "" & genus != "") %>% 
+     group_by(class, order, family, genus, common_name, year) %>% 
+     summarise(n_seq = n()) %>% 
+     ungroup() %>% 
+     mutate(Group = "Wild species",
+            genus = paste("Genus:", genus, sep = " ")) %>% 
+     select(Group, class, common_name, genus, year, n_seq) %>% 
+     pivot_wider(id_cols = NULL, names_from = year, values_from = n_seq, values_fill = 0) %>% 
+  select(Group, class, common_name, genus, `2021`, `2022`) %>% 
+  rename("Taxon" = "genus")
+
+family <- cleaned$seq %>% 
+     filter(is_blank == 0 & species == "" & family != "") %>% 
+     group_by(class, order, family, genus, common_name, year) %>% 
+     summarise(n_seq = n()) %>%
+     ungroup() %>%  
+     mutate(Group = "Wild species",
+            family = paste("Family:", family, sep = " ")) %>% 
+     select(Group, class, common_name, family, year, n_seq) %>% 
+     pivot_wider(id_cols = NULL, names_from = year, values_from = n_seq, values_fill = 0)  %>% 
+  select(Group, class, common_name, family, `2021`, `2022`) %>% 
+  rename("Taxon" = "family")
+
+tab2 <- rbind(wild, domestic, genus, family, homo)
 write.csv(tab2, file = "tables/Table_Sequences_by_species.csv")  
 
 ```
