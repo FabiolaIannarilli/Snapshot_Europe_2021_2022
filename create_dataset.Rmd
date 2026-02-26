@@ -1,5 +1,5 @@
 # Author: Fabiola Iannarilli
-# Date: 2025-12-08
+# Date: 2026-02-26
 
 # This script accompains the manuscript:
 # "SNAPSHOT EUROPE 2021-2022: The first coordinated, volunteer-based and European-wide camera trap surveys of terrestrial vertebrates"

@@ -52,6 +52,10 @@ clean_2022 <- function(year = 2022){
   seq <- seq %>% filter(deployment_id %in% depl$deployment_id)
   images <- images %>% filter(deployment_id %in% depl$deployment_id)
   
+  # fix taxonomy: all Bovidae as Cetartiodactyla
+  seq <- seq %>% 
+    mutate(order = ifelse(family == "Bovidae", "Cetartiodactyla", order))
+  
   # return list
   cleaned_ls <- list(cam, depl, seq, proj, images)
   names(cleaned_ls) <- c("cam", "depl", "seq", "proj", "images")
