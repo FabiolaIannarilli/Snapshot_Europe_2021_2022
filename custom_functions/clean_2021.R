@@ -9,12 +9,19 @@ clean_2021 <- function(year = 2021){
   seq <- se21_seq
   proj <- se21_proj
   # load and rbind images files
-  images <- rbind(se21_images0, se21_images1, se21_images2)
+  images <- rbind(se21_images0, se21_images1)
   
   # remove seq before August 15th and after November 15th
   seq <- seq %>% 
     filter(ymd_hms(start_time) >= ymd_hms("2021-08-15 00:00:00") &
              ymd_hms(end_time) <= ymd_hms("2021-11-15 23:59:59")) 
+  
+  # retain only records of Mammals and Birds
+  seq <- seq %>% 
+    filter(class %in% c("Mammalia", "Aves"))
+  images <- images %>% 
+    filter(class %in% c("Mammalia", "Aves"))
+  
   
   # adjust start and end dates of sampling at the different deployments
   depl <- depl %>% 

@@ -1,18 +1,24 @@
+---
+title: "Create Snapshot Europe 2021-2022 dataset"
+output: html_document
+bibliography: references.bib
+---
+
 # Author: Fabiola Iannarilli
 # Date: 2026-02-26
 
 # This script accompains the manuscript:
-# "SNAPSHOT EUROPE 2021-2022: The first coordinated, volunteer-based and European-wide camera trap surveys of terrestrial vertebrates"
+# "SNAPSHOT EUROPE 2021-2022: The first public dataset from a Europe-wide camera-trap survey of terrestrial vertebrates"
 
-This code provided in this script contains instructions to clean and collate camera-trap data collected by participants of Snapshot Europe 2021 and 2022. Collaborators uploaded and processed the images collected in September-October of each year in Wildlife Insights. Details on the two datasets and the data collection protocol are available in the metadata of the associated publication @data_paper_2024.
+The code provided in this script contains instructions to clean and collate camera-trap data collected by participants of Snapshot Europe 2021 and 2022. Collaborators uploaded and processed the images collected in September-October of each year in Wildlife Insights. The original records are available in this platform as the projects @SE_2021 and @SE_2022. This code applies further data cleaning and plotting of the records. Details on the two datasets and the data collection protocol are available in the metadata of the associated publication @data_paper_2021_2022.
 
-The script is structured as follows:
+This script is structured as follows:
 
-*__Data cleaning__. We start by cleaning the data of the projects @SE_2021 and @SE_2022 after they have been downloaded from Wildlife Insights. We, then, collate the cleaned version of these two datasets into one, which is the version shared in the associated publication @data_paper_2024. 
+* __Data cleaning__. We start by cleaning the data of the projects @SE_2021 and @SE_2022 after they have been downloaded from Wildlife Insights. We, then, collate the cleaned version of these two datasets into one, which is the version shared in the associated publication @data_paper_2021_2022. 
 
-*__Data visualization__. We visually explore the data and create the figures reported in the metadata file of @data_paper_2024.
+* __Data visualization__. We visually explore the data and create the figures reported in the metadata file of @data_paper_2021_2022.
 
-*__Data summaries__. We calculate the summaries that are included in the metadata file of @data_paper_2024.
+* __Data summaries__ and __Tables__. We calculate the summaries and create the Tables that are included in the metadata file of @data_paper_2021_2022.
 
 ## Data cleaning
 
@@ -36,7 +42,7 @@ source("custom_functions/collate_dataset.R")
 
 # Load data
 # enter date of data download
-date_download <- "20251215"
+date_download <- "20260227"
 
 # 2021
 se21_proj <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/projects.csv"))
@@ -45,7 +51,6 @@ se21_depl <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/
 se21_seq <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/sequences.csv"))
 se21_images0 <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/images_2003388_0.csv"))
 se21_images1 <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/images_2003388_1.csv"))
-se21_images2 <- read.csv(paste0("data_input/2021_downloaded_on_", date_download, "/images_2003388_2.csv"))
 
 
 # 2022
@@ -55,7 +60,6 @@ se22_depl <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/
 se22_seq <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/sequences.csv"))
 se22_images0 <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/images_2004446_0.csv"))
 se22_images1 <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/images_2004446_1.csv"))
-se22_images2 <- read.csv(paste0("data_input/2022_downloaded_on_", date_download, "/images_2004446_2.csv"))
 
 
 ```
@@ -73,7 +77,7 @@ We now collate each element (e.g. *seq*, that is the object containing the seque
 cleaned <- collate_dataset(dat1 = cleaned_2021, dat2 = cleaned_2022) 
 ```
 
-We save each item in the *cleaned* list in a separate file in a folder named *DataS1*. The overall structure mimics the relational database structure used by Wildlife Insights. The zipped version of this folder corresponds to the version shared with the associate publication @data_paper_2024. 
+We save each item in the *cleaned* list in a separate file in a folder named *DataS1*. The overall structure mimics the relational database structure used by Wildlife Insights. The zipped version of this folder corresponds to the version shared with the associated publication @data_paper_2021_2022. 
 
 ``` {r create4}
 write_csv(cleaned$cam, file = "data_output/DataS1/Snapshot_Europe_2021_2022_cameras.csv")
@@ -86,7 +90,7 @@ write_csv(cleaned$images, file = "data_output/DataS1/Snapshot_Europe_2021_2022_i
 
 ## Data visualization and mapping
 
-We create a few graphics that capture the spatial, temporal, and taxonomic extent of the data. These visuals are the figures presented in the Metadata document associated to this data paper.
+We create a few graphics that capture the spatial, temporal, and taxonomic extent of the data. These visuals are the figures presented in the Metadata document associated to the data paper @data_paper_2021_2022.
 
 ### Spatial coverage
 We start with mapping the locations of the arrays in each year in relation to the main biogeoregions occurring in Europe.
@@ -348,6 +352,8 @@ ggarrange(annotate_figure(pl_both, top = text_grob("Sampled in both years",
 
 ### Taxonomic coverage
 
+We plot details on number of detections and detection arrays for a selection of species in each year.
+
 ``` {r plot3}
 # species' raw counts
 seq <- cleaned$seq %>% 
@@ -440,6 +446,8 @@ ggarrange(pl_taxo1 + labs(caption = ""), pl_taxo2,
 
 ## Data summaries
 
+We create further summaries to describe the dataset.
+
 ``` {r summaries}
 # number of locations
 cleaned$depl %>% 
@@ -480,9 +488,10 @@ length(unique(effort$subproject_name_no_year))
 nrow(effort %>% filter(n_loc < 8))
 100*nrow(effort %>%  filter(n_loc < 8))/length(unique(effort$subproject_name_no_year))
 
-# mean and SD number of locations
+# mean, SD, and range of number of locations per array
 mean(effort$n_loc)
 sd(effort$n_loc)
+range(effort$n_loc)
 
 # % of array sampled both years
 table(table(effort$subproject_name_no_year)>1)
@@ -516,12 +525,8 @@ temp %>%
   summarize(start = min(first_day_depl),
             end = max(last_day_depl))
 
-# camera site per array
-range(effort$n_loc)
-mean(effort$n_loc)
-sd(effort$n_loc)
 
-# trap days
+# trap days per array
 range(effort$n_days)
 mean(effort$n_days)
 sd(effort$n_days)
@@ -559,17 +564,9 @@ table((cleaned$seq %>%
 table((cleaned$seq %>% 
     filter(is_blank == 0) %>% 
   mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
-  filter(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus",  "Bubalus arnee",
+  filter(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus",  "Bubalus bubalis",
                                 "Equus asinus", "Equus caballus", "Gallus gallus domesticus", 
                                 "Ovis aries", "Sus scrofa scrofa", "Capra aegagrus hircus")))$year)
-
-# number of blank sequences per year, and percentage over total
-cleaned$seq %>% 
-  filter(is_blank == 1) %>% 
-  group_by(year) %>% 
-  summarise(n_blank_seq = n())
-nrow(cleaned$seq %>% 
-    filter(is_blank == 1))/nrow(cleaned$seq)
 
 # latitudinal and longitudinal range by year
 subproj %>% 
@@ -605,7 +602,7 @@ files <- list.files("data_output/DataS1/", full.names = TRUE)
 ```
 
 ## Tables
-The following code creates Tables 1 and 2 reported in the Metadata document associated to this data paper.
+Finally, we create the Tables 1 and 2 reported in the Metadata document associated to the data paper @data_paper_2021_2022.
 
 ``` {r tables}
 # Table 1. Sampling effort.
@@ -627,7 +624,7 @@ wild <- cleaned$seq %>%
                class %in% c("Aves", "Mammalia") &
                species != "") %>% 
   mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
-  filter(!(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus", "Bubalus arnee",
+  filter(!(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus", "Bubalus bubalis",
                                 "Equus asinus", "Equus caballus", "Gallus gallus domesticus",
                                 "Ovis aries", "Sus scrofa scrofa", "Capra aegagrus hircus"))) %>% 
   group_by(class, family, genus, species, common_name, year) %>% 
@@ -657,7 +654,7 @@ homo <- cleaned$seq %>%
 domestic <- cleaned$seq %>% 
     filter(is_blank == 0) %>% 
   mutate(scientific_name = paste(genus, species, sep = " ")) %>% 
-  filter(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus", "Bubalus arnee",
+  filter(scientific_name %in% c("Canis familiaris", "Felis catus", "Bos taurus", "Bubalus bubalis",
                                 "Equus asinus", "Equus caballus", "Gallus gallus domesticus", 
                                 "Ovis aries", "Sus scrofa scrofa", "Capra aegagrus hircus")) %>% 
   mutate(common_name = ifelse(common_name == "Dog-on-leash", "Domestic Dog", common_name)) %>% 
