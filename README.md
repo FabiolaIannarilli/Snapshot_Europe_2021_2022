@@ -1,0 +1,1 @@
+This code takes the data of Snapshot Europe 2021 and Snapshot Europe 2022 archived in Wildlife Insights, runs a few data cleaning steps, and compiles the two datasets into one to produced the data presented in Iannarilli et al. 2026. It also produces figures, tables and summaries provided in the Metadata file of the related  publication.
