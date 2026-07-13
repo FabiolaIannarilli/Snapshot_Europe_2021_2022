@@ -21,7 +21,8 @@ collate_dataset <- function(dat1 = cleaned_2021, dat2 = cleaned_2022){
   
   # info on images
   images <- rbind(data.frame(year = 2021, dat1$images),
-                data.frame(year = 2022, dat2$images))
+                data.frame(year = 2022, dat2$images)) %>% 
+    select(-location)
 
   # return list
   cleaned_ls <- list(cam, depl, seq, proj, images)
